@@ -15,11 +15,12 @@ def data_manager():
     data_manager = DataManager(input_dir, output_dir, temp_dir)
     yield data_manager
     # Cleanup code
-    for file in temp_dir.glob("*"):
-        file.unlink()
+    delete_dir(temp_dir)
+    delete_dir(output_dir)
 
-    for file in output_dir.glob("*"):
-        file.unlink()
 
-    os.rmdir(temp_dir)
-    os.rmdir(output_dir)
+def delete_dir(dir: Path):
+    if dir.exists() and dir.is_dir():
+        for file in dir.glob("*"):
+            file.unlink()
+        os.rmdir(dir)
