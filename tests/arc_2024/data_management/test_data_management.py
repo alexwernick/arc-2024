@@ -38,3 +38,39 @@ def test_create_solution_file(data_manager: DataManager):
     with open(Path(data_manager._output_dir) / file_name, "r") as file:
         data = json.load(file)
         assert data == solution_data
+
+
+def test_save_individual_solution(data_manager: DataManager):
+    # Prepare test data
+    solution_data = {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]}
+    task_id = "007bbfb7"
+
+    # Call the save_individual_solution method
+    data_manager.save_individual_solution(solution_data, task_id)
+
+    # Check if the solution file was created
+    output_file_path = os.path.join(data_manager._temp_dir, f"solution_{task_id}.json")
+    assert os.path.exists(output_file_path)
+    with open(output_file_path, "r") as file:
+        data = json.load(file)
+        assert data == solution_data
+
+
+def test_get_unsolved_tasks(data_manager: DataManager):
+    # Prepare test data
+    file_name = "sample_challenges.json"
+    data_manager.split_tasks_to_individual_files(file_name)
+    solution_data = {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]}
+    task_id = "007bbfb7"
+
+    # Save an individual solution
+    data_manager.save_individual_solution(solution_data, task_id)
+
+    # Call the get_unsolved_tasks method
+    unsolved_tasks = data_manager.get_unsolved_tasks()
+
+    # Check if the unsolved tasks are as expected
+    assert (
+        task_id not in unsolved_tasks
+    )  # Assuming get_unsolved_tasks returns a list of unsolved task IDs
+    assert "00d62c1b" in unsolved_tasks  # This task should still be unsolved
