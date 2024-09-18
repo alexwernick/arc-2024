@@ -166,3 +166,11 @@ cython_debug/
 
 # Ignore specific VS Code workspace files
 *.code-workspace
+
+
+# Ignore everything in kaggle_data apart from dataset-metadata.json
+kaggle_data/*
+!kaggle_data/dataset-metadata.json
+
+# Ignore temp data
+arc_2024/data/temp/
