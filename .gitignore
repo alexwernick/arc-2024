@@ -174,3 +174,6 @@ kaggle_data/*
 
 # Ignore temp data
 arc_2024/data/temp/
+
+requirements.txt
+kaggle_packages/

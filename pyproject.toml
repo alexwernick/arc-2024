@@ -6,10 +6,17 @@ authors = ["Alex Wernick <alex.j.wernick@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 numpy = "^2.1.1"
 pandas = "^2.2.2"
 python-dotenv = "^1.0.1"
+sympy = "^1.13.3"
+clingo = "^5.7.1"
+bitarray = "^2.9.2"
+setuptools = "^75.1.0"
+pyswip = { git = "https://github.com/yuce/pyswip", branch = "master" }
+python-sat = "^1.8.dev13"
+janus-swi = "^1.4.0"
 
 
 [tool.poetry.group.dev.dependencies]

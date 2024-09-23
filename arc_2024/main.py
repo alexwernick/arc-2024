@@ -5,6 +5,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from arc_2024.data_management.data_manager import DataManager
+from arc_2024.popper.loop import learn_solution
+from arc_2024.popper.util import Settings
 
 
 def main():
@@ -40,6 +42,20 @@ def main():
         data_manager.save_individual_solution(solution, unsolved_task)
 
     data_manager.create_solution_file("submission.json")
+
+    # try popper
+    ex_file = str(Path(__file__).parent / "data/arc_parsed_popper/253bf280/exs.pl")
+    bk_file = str(Path(__file__).parent / "data/arc_parsed_popper/253bf280/bk.pl")
+    bias_file = str(Path(__file__).parent / "data/arc_parsed_popper/253bf280/bias.pl")
+    settings = Settings(ex_file=ex_file, bk_file=bk_file, bias_file=bias_file)
+
+    prog, score, stats = learn_solution(settings)
+    if prog != None:
+        settings.print_prog_score(prog, score)
+    else:
+        print("NO SOLUTION")
+    if settings.show_stats:
+        stats.show()
 
 
 if __name__ == "__main__":
