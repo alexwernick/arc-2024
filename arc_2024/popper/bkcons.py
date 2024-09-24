@@ -1,18 +1,12 @@
 import numbers
-import operator
-import time
 from collections import defaultdict
 from itertools import permutations
 
 import clingo
 import clingo.script
-import pkg_resources
 from clingo import Function, Number, Tuple_
 from pysat.card import *
-from pysat.formula import CNF
-from pysat.solvers import Solver
 
-from .util import Constraint, Literal, format_rule, order_prog, rule_is_recursive
 
 clingo.script.enable_python()
 
@@ -55,7 +49,7 @@ TIDY_OUTPUT = """
 #     return (head_pred, arity), body_preds
 
 
-from itertools import combinations, permutations
+from itertools import permutations
 
 all_myvars = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
@@ -646,23 +640,6 @@ def deduce_bk_cons(settings, tester):
         rule = f"holds({p},{arg_str}):- {p}{arg_str2}."
         prog.append(rule)
         prog.append(f"body_pred({p},{a}).")
-
-    # with open(settings.bias_file) as f:
-    #     bias = f.read()
-    #     for p,a in settings.pointless:
-    #         bias = re.sub(rf'body_pred\({p},{a}\).','', bias)
-
-    # encoding = []
-    # ADD VARS, DIRECTIONS, AND TYPES
-    # head_arity = len(settings.head_literal.arguments)
-    # encoding.append(f'head_vars({head_arity}, {tuple(range(head_arity))}).')
-    # arities = set(a for p, a in self.settings.body_preds)
-    # arities.add(head_arity)
-    # for arity in arities:
-    #     for xs in permutations(range(settings.max_vars), arity):
-    #         encoding.append(f'vars({arity}, {tuple(xs)}).')
-    #         for i, x in enumerate(xs):
-    #             encoding.append(f'var_pos({x}, {tuple(xs)}, {i}).')
 
     # type_encoding = set()
     if settings.head_types:

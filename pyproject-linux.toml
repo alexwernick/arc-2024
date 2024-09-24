@@ -25,6 +25,5 @@ pre-commit = "^3.8.0"
 ipykernel = "^6.29.5"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
