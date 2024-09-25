@@ -12,6 +12,7 @@ class Shape:
     height: int
     position: Tuple[int, int]
     mask: NDArray[np.int16]
+    num_of_coloured_pixels: int
 
     def __init__(
         self,
@@ -29,3 +30,13 @@ class Shape:
         self.height = height
         self.position = position
         self.mask = mask
+        self.num_of_coloured_pixels = np.count_nonzero(mask)
+
+    def __eq__(self, other):
+        print(type(other))
+        if isinstance(other, Shape):
+            array_equal = np.array_equal(self.mask, other.mask)
+            colour_equal = self.colour == other.colour
+            position_equal = self.position == other.position
+            return array_equal and colour_equal and position_equal
+        return False
