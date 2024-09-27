@@ -32,6 +32,10 @@ class Shape:
         self.position = position
         self.mask = mask
         self.num_of_coloured_pixels = np.count_nonzero(mask)
+        self.right_most = self.position[1] + self.width - 1
+        self.left_most = self.position[1]
+        self.bottom_most = self.position[0] + self.height - 1
+        self.top_most = self.position[0]
 
         # The below calculation ensures that for a 2*2 grid with position (0,0)
         # the center would be (0.5, 0.5). For a 3*3 grid with position (0,0)
@@ -59,7 +63,7 @@ class Shape:
         """
         Returns True if self is below other
         """
-        return self.centre[0] < other.centre[0]
+        return self.centre[0] > other.centre[0]
 
     def is_left_of(self, other: "Shape") -> bool:
         """
@@ -77,32 +81,32 @@ class Shape:
         """
         Returns True if self inline with other horizontally and above and to the right
         """
-        above_by = self.centre[0] - other.centre[0]
-        right_by = other.centre[1] - self.centre[1]
+        above_by = other.centre[0] - self.centre[0]
+        right_by = self.centre[1] - other.centre[1]
         return above_by == right_by and above_by > 0
 
     def is_inline_horizontally_above_left(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and above and to the left
         """
-        above_by = self.centre[0] - other.centre[0]
-        left_by = self.centre[1] - other.centre[1]
+        above_by = other.centre[0] - self.centre[0]
+        left_by = other.centre[1] - self.centre[1]
         return above_by == left_by and above_by > 0
 
     def is_inline_horizontally_below_right(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and below and to the right
         """
-        below_by = other.centre[0] - self.centre[0]
-        right_by = other.centre[1] - self.centre[1]
+        below_by = self.centre[0] - other.centre[0]
+        right_by = self.centre[1] - other.centre[1]
         return below_by == right_by and below_by > 0
 
     def is_inline_horizontally_below_left(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and below and to the left
         """
-        below_by = other.centre[0] - self.centre[0]
-        left_by = self.centre[1] - other.centre[1]
+        below_by = self.centre[0] - other.centre[0]
+        left_by = other.centre[1] - self.centre[1]
         return below_by == left_by and below_by > 0
 
     def is_inline_above_vertically(self, other: "Shape") -> bool:
@@ -135,6 +139,47 @@ class Shape:
         """
         return self.is_right_of(other) and not (
             self.is_above(other) or self.is_below(other)
+        )
+
+    def is_mask_overlapping(self, other: "Shape") -> bool:
+        """
+        Returns True if self's mask overlaps with other's mask
+        """
+        # Define the larger grid size
+        max_height = max(
+            self.position[0] + self.height, other.position[0] + other.height
+        )
+        max_width = max(self.position[1] + self.width, other.position[1] + other.width)
+        grid_size = (max_height, max_width)
+
+        # Create the larger grid initialized to zeros
+        self_relative_mask = np.zeros(grid_size, dtype=bool)
+        other_relative_mask = np.zeros(grid_size, dtype=bool)
+
+        # Place array1 onto grid1
+        self_relative_mask[
+            self.position[0] : self.position[0] + self.height,
+            self.position[1] : self.position[1] + self.width,
+        ] = self.mask
+
+        # Place array2 onto grid2
+        other_relative_mask[
+            other.position[0] : other.position[0] + other.height,
+            other.position[1] : other.position[1] + other.width,
+        ] = other.mask
+
+        # Check for overlap using logical_and
+        return np.any(np.logical_and(self_relative_mask, other_relative_mask))
+
+    def is_inside(self, other: "Shape") -> bool:
+        """
+        Returns True if self is inside other
+        """
+        return (
+            self.top_most >= other.top_most
+            and self.bottom_most <= other.bottom_most
+            and self.left_most >= other.left_most
+            and self.right_most <= other.right_most
         )
 
     def is_same_colour(self, other: "Shape") -> bool:
