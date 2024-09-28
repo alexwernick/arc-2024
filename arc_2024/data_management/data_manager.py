@@ -1,6 +1,10 @@
 import json
 import os
 from pathlib import Path
+from typing import List, NamedTuple
+
+import numpy as np
+from numpy.typing import NDArray
 
 
 class DataManager:
@@ -78,3 +82,25 @@ class DataManager:
                 solutions.append(file_path.stem.replace(self._solution_file_prefix, ""))
 
         return list(set(tasks) - set(solutions))  # Return unsolved tasks
+
+    class TaskData(NamedTuple):
+        inputs: List[NDArray[np.int16]]
+        outputs: List[NDArray[np.int16]]
+        test_inputs: List[NDArray[np.int16]]
+        test_outputs: List[NDArray[np.int16]]
+
+    def get_task_data(self, task_id: str) -> TaskData:
+        """
+        Returns the inputs, outputs, test_inputs and test_outputs for a given task
+        """
+        with open(Path(self._temp_dir) / f"{task_id}.json", "r") as file:
+            data = json.load(file)
+
+        inputs = [np.array(item["input"], dtype=np.int16) for item in data["train"]]
+        outputs = [np.array(item["output"], dtype=np.int16) for item in data["train"]]
+        test_inputs = [np.array(item["input"], dtype=np.int16) for item in data["test"]]
+        test_outputs = [
+            np.array(item["output"], dtype=np.int16) for item in data["test"]
+        ]
+
+        return self.TaskData(inputs, outputs, test_inputs, test_outputs)

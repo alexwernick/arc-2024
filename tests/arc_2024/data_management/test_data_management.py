@@ -1,6 +1,11 @@
 import json
 import os
 from pathlib import Path
+from typing import List
+
+import numpy as np
+import numpy.testing as npt
+from numpy.typing import NDArray
 
 from arc_2024.data_management.data_manager import DataManager
 
@@ -74,3 +79,162 @@ def test_get_unsolved_tasks(data_manager: DataManager):
         task_id not in unsolved_tasks
     )  # Assuming get_unsolved_tasks returns a list of unsolved task IDs
     assert "00d62c1b" in unsolved_tasks  # This task should still be unsolved
+
+
+def test_get_task_data(data_manager: DataManager):
+    # Prepare test data
+    file_name = "sample_challenges.json"
+    data_manager.split_tasks_to_individual_files(file_name)
+
+    # Call the get_task_data method
+    inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data("007bbfb7")
+
+    # Check if the task data is as expected
+    expected_inputs: List[NDArray[np.int16]] = []
+    expected_outputs: List[NDArray[np.int16]] = []
+    expected_test_inputs: List[NDArray[np.int16]] = []
+    expected_test_outputs: List[NDArray[np.int16]] = []
+
+    expected_inputs.append(
+        np.array(
+            [[0, 7, 7], [7, 7, 7], [0, 7, 7]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[4, 0, 4], [0, 0, 0], [0, 4, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[0, 0, 0], [0, 0, 2], [2, 0, 2]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[6, 6, 0], [6, 0, 0], [0, 6, 6]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[2, 2, 2], [0, 0, 0], [0, 2, 2]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 7, 7, 7, 7, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 7, 7, 0, 7, 7, 0, 7, 7],
+                [7, 7, 7, 7, 7, 7, 7, 7, 7],
+                [0, 7, 7, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 7, 7, 7, 7, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [4, 0, 4, 0, 0, 0, 4, 0, 4],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 4, 0, 0, 0, 0, 0, 4, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 4, 0, 4, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 4, 0, 0, 0, 0],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 2],
+                [0, 0, 0, 0, 0, 0, 2, 0, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 2, 0, 0, 0, 0, 0, 2],
+                [2, 0, 2, 0, 0, 0, 2, 0, 2],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [6, 6, 0, 6, 6, 0, 0, 0, 0],
+                [6, 0, 0, 6, 0, 0, 0, 0, 0],
+                [0, 6, 6, 0, 6, 6, 0, 0, 0],
+                [6, 6, 0, 0, 0, 0, 0, 0, 0],
+                [6, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 6, 6, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 6, 6, 0, 6, 6, 0],
+                [0, 0, 0, 6, 0, 0, 6, 0, 0],
+                [0, 0, 0, 0, 6, 6, 0, 6, 6],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [2, 2, 2, 2, 2, 2, 2, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 2, 2, 0, 2, 2, 0, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 2, 2, 2, 2, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 2, 2, 0, 2, 2],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_test_inputs.append(
+        np.array(
+            [[7, 0, 7], [7, 0, 7], [7, 7, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_test_outputs.append(
+        np.array(
+            [[1, 0, 1], [1, 0, 1], [1, 1, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    def assert_lists_of_arrays_equal(list1, list2):
+        assert len(list1) == len(list2), "Lists have different lengths"
+        for arr1, arr2 in zip(list1, list2):
+            npt.assert_array_equal(arr1, arr2)
+
+    assert_lists_of_arrays_equal(inputs, expected_inputs)
+    assert_lists_of_arrays_equal(outputs, expected_outputs)
+    assert_lists_of_arrays_equal(test_inputs, expected_test_inputs)
+    assert_lists_of_arrays_equal(test_outputs, expected_test_outputs)

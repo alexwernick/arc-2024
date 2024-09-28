@@ -196,7 +196,7 @@ class Interpreter:
 
         for i, grid in enumerate(grids):
             # first we get all the single square shapes
-            shapes[i].extend(Interpreter._interpret_individual_pixels(grid))
+            # shapes[i].extend(Interpreter._interpret_individual_pixels(grid))
             # then add all the blocks of the same colour
             # note might need to consider shapes that don't join diagonally
             # right now a diagonal touch is conidered joining
