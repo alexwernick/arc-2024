@@ -174,3 +174,6 @@ kaggle_data/*
 
 # Ignore temp data
 arc_2024/data/temp/
+
+# Ignore some files from cs50
+arc_2024/inductive_logic_programming/cs50/
