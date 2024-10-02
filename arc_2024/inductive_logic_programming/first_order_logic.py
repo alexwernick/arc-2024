@@ -163,7 +163,7 @@ class Literal:
         """
         String representation of the literal.
         """
-        args_str = ", ".join(self.args)
+        args_str = ", ".join(arg.name for arg in self.args)
         negation = "not " if self.negated else ""
         return f"{negation}{self.predicate.name}({args_str})"
 

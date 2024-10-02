@@ -25,7 +25,7 @@ class FOIL:
         target_literal: Literal,
         predicates: list[Predicate],
         background_knowledge: dict[str, set[tuple]],
-        allow_recursion: bool = True,
+        allow_recursion: bool = False,
     ):
         """
         Initialize the FOIL algorithm.
@@ -55,10 +55,23 @@ class FOIL:
 
         while uncovered_pos:
             # Learn a new clause to cover positive examples
-            clause = self.new_clause(uncovered_pos, neg_examples)
+            clause, best_pos_covered = self.new_clause(uncovered_pos, neg_examples)
             # Remove positive examples covered by this clause
-            covered_pos = clause.covers(uncovered_pos, self.background_knowledge)
-            uncovered_pos = [ex for ex in uncovered_pos if ex not in covered_pos]
+            new_uncovered_pos = []
+            for uncovered in uncovered_pos:
+                for covered_posivive in best_pos_covered:
+                    is_pos_example_covered = True
+                    for key in uncovered.keys():
+                        if uncovered[key] != covered_posivive[key]:
+                            is_pos_example_covered = False
+                            break
+                    if is_pos_example_covered:
+                        break
+
+                if not is_pos_example_covered:
+                    new_uncovered_pos.append(uncovered)
+
+            uncovered_pos = new_uncovered_pos
             self.rules.append(clause)
 
             if self.allow_recursion:
@@ -68,7 +81,7 @@ class FOIL:
         self,
         uncovered_pos_examples: list[dict[str, Any]],
         neg_examples: list[dict[str, Any]],
-    ) -> Clause:
+    ) -> tuple[Clause, list[dict[str, Any]]]:
         """
         Learn a new clause to cover positive examples.
         :param uncovered_pos_examples: A list of positive examples not yet covered.
@@ -90,15 +103,15 @@ class FOIL:
             candidate_literals: list[Literal] = self.new_literals(clause)
 
             best_literal: Optional[Literal] = None
-            best_gain: float = 0.0
+            best_gain: float = 0
 
             # Evaluate each candidate literal
             for literal in candidate_literals:
                 if literal in clause.body:
                     continue  # Avoid cycles
 
-                if not self.allow_recursion and literal == clause.head:
-                    continue  # don't allow recursion
+                if literal == clause.head:
+                    continue  # Avoid cycles
 
                 extended_examples: list[tuple[bool, dict[str, Any]]] = []
 
@@ -137,7 +150,8 @@ class FOIL:
             ]
             best_literal = None
             best_gain = 0
-        return clause
+
+        return (clause, [ex for is_pos, ex in examples if is_pos])
 
     def extend_example(
         self, example: tuple[bool, dict[str, Any]], literal_to_add: Literal
@@ -165,7 +179,9 @@ class FOIL:
                 continue
 
         if len(new_vars) == 0:
-            return [example]  # no new variables to add
+            if evaluate_literal(literal_to_add, example[1], self.background_knowledge):
+                return [example]  # no new variables to add
+            return []
 
         if len(new_vars) > 1:
             raise ValueError("We should only have at most one new variable to add")
@@ -193,8 +209,8 @@ class FOIL:
         possible_literals: list[Literal] = []
         # get the current variables in the clause
         current_vars = list(clause.variables)
-        # get the predicates already used in the clause so we don't repeat
-        used_predicates = {literal.predicate for literal in clause.body}
+        # get the literals already used in the clause so we don't repeat
+        used_literals = set(clause.body)
 
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
@@ -211,7 +227,11 @@ class FOIL:
             new_vars_per_arg[i].append(Variable(f"V{new_var_number}", arg_type))
 
         # Generate all combinations of existing variables
-        var_combinations = list(itertools.product(*valid_vars_per_arg))
+        var_combinations = [
+            combo
+            for combo in itertools.product(*valid_vars_per_arg)
+            if len(set(combo)) == len(combo)  # avoid duplicates
+        ]
 
         # append the combinations of the new variable with the other variables
         for i, new_vars in enumerate(new_vars_per_arg):
@@ -231,13 +251,14 @@ class FOIL:
         for vars in var_combinations:
             variables = list(vars)
             literal = Literal(predicate, variables)
-            negated_literal = Literal(predicate, variables, negated=True)
-            # Avoid adding literals with the same predicate already used in the rule
-            if literal.predicate not in used_predicates:
+            # negated_literal = Literal(predicate, variables, negated=True)
+            # Avoid adding duplicate literals
+            if literal not in used_literals:
                 possible_literals.append(literal)
 
-            if negated_literal.predicate not in used_predicates:
-                possible_literals.append(negated_literal)
+            # Avoid adding duplicate literals
+            # if negated_literal not in used_literals:
+            #     possible_literals.append(negated_literal)
 
         return possible_literals
 
@@ -258,7 +279,6 @@ class FOIL:
         - The form of the Gain heursitic allows a kind of purning akin
         to aphla-beta pruning in
         """
-
         literals: list[Literal] = []
         for predicate in self.predicates:
             # Generate possible literals
@@ -266,39 +286,8 @@ class FOIL:
 
         return literals
 
-        # need something like
-
-        # TODO: extend to include inequality predicates
-
-        # I think the code below can be done by
-        # adding a predictate for equality and inequality
-        # and then adding to backgroudn knowledge
-
-        # # Generate literals of the form Xj = Xk
-        # for var in clause.head.variables:
-        #     for other_var in clause.head.variables:
-        #         if var != other_var:
-        #             literal = Literal(f"{var} = {other_var}")
-        #             literals.append(literal)
-
-        # # Generate literals of the form Xj != Xk
-        # for var in clause.head.variables:
-        #     for other_var in clause.head.variables:
-        #         if var != other_var:
-        #             literal = Literal(f"{var} != {other_var}")
-        #             literals.append(literal)
-
-        # Generate literals of the form Q(V1, V2,..., Vk)
-        # this code below is not correct
-        # for predicate in self.predicates:
-        #     if self.allow_recursion == False and predicate.name == clause.head.name:
-        #          continue
-
-        #     for var in predicate.variables:
-        #         literal = Literal(f"{predicate.name}({var})")
-        #         literals.append(literal)
-
-    # TODO: see section on pruning in the paper
+        # TODO: extend to include inequality literals
+        # TODO: see section on pruning in the paper
 
     def predict(self, example: dict[str, Any]) -> bool:
         """
@@ -311,28 +300,47 @@ class FOIL:
 
     @staticmethod
     def information_gain(
-        pos_covered_count: int,
-        neg_covered_count: int,
-        previous_pos_covered_count: int,
-        previous_neg_covered_count: int,
+        positive_new: int,
+        negative_new: int,
+        positive_old: int,
+        negative_old: int,
     ) -> float:
         """
-        Calculate the FOIL information gain.
+        Calculate the adjusted FOIL information gain when introducing new variables.
+        :param p_old: Number of positive examples covered before adding the new literal.
+        :param n_old: Number of negative examples covered before adding the new literal.
+        :param p_new: Number of positive examples covered after adding the new literal.
+        :param n_new: Number of negative examples covered after adding the new literal.
+        :return: The adjusted information gain value.
         """
-        # Avoid log(0) by returning 0 if no positive examples are covered
-        if pos_covered_count == 0:
+        # Avoid division by zero and log of zero
+        if (
+            positive_new == 0
+            or (positive_new + negative_new) == 0
+            or (positive_old + negative_old) == 0
+        ):
             return 0
 
-        information_before = -math.log2(
-            (previous_pos_covered_count)
-            / (previous_pos_covered_count + previous_neg_covered_count)
-        )
+        # Compute probabilities
+        prob_old = positive_old / (positive_old + negative_old)
+        prob_new = positive_new / (positive_new + negative_new)
 
-        information_after = -math.log2(
-            (pos_covered_count) / (pos_covered_count + neg_covered_count)
-        )
+        # Ensure probabilities are positive
+        if prob_new == 0 or prob_old == 0:
+            return 0
 
-        information_gain = (pos_covered_count + neg_covered_count) * (
-            information_before - information_after
-        )
-        return information_gain
+        # Calculate the expansion factor f
+        f = (
+            positive_new / positive_old if positive_old > 0 else 1
+        )  # Avoid division by zero
+
+        # Ensure f is at least 1 to avoid negative gain due to floating point errors
+        if f < 1:
+            f = 1
+
+        # Compute the adjusted information gain
+        gain = positive_new * (
+            math.log2(prob_new) - math.log2(prob_old)
+        ) - positive_new * math.log2(f)
+
+        return gain
