@@ -264,20 +264,118 @@ class Clause:
         """
         covered = []
         for ex in examples:
-            if self.is_satisfied(ex, background_knowledge):
+            if self._is_satisfied(ex, background_knowledge):
                 covered.append(ex)
         return covered
 
-    def is_satisfied(
+    def _is_satisfied(
         self, example: dict[str, Any], background_knowledge: dict[str, set[tuple]]
     ):
         """
-        Check if an example satisfies the rule.
-        :param example: An example represented as a dict of variable assignments.
-        :return: True if the rule is satisfied, False otherwise.
+        Check if the example satisfies the rule, possibly
+        finding assignments for free variables.
+        :param example: A dict mapping Variables to values (from the example).
+        :return: True if the rule is satisfied for the given example, False otherwise.
         """
         # Evaluate each literal in the body with the given example
-        for literal in self.body:
-            if not evaluate_literal(literal, example, background_knowledge):
-                return False
-        return True
+        variable_assignments = example.copy()
+
+        # Attempt to satisfy the body literals with possible bindings
+        return self._satisfy_body(variable_assignments, background_knowledge, 0)
+
+        # for literal in self.body:
+        #     if not evaluate_literal(literal, example, background_knowledge):
+        #         return False
+        # return True
+
+    @staticmethod
+    def _get_possible_bindings(
+        literal: Literal,
+        variable_assignments: dict[str, Any],
+        background_knowledge: dict[str, set[tuple]],
+    ) -> list[dict[str, Any]]:
+        """
+        Find possible variable bindings for a literal given current assignments.
+        :param literal: The Literal object to satisfy.
+        :param variable_assignments: Current assignments for variables (dict).
+        :return: A list of possible new bindings (list of dicts).
+        """
+        # Prepare the arguments with current assignments, identify unbound variables
+        args = []
+        for arg in literal.args:
+            if isinstance(arg, Variable):
+                if arg.name in variable_assignments:
+                    args.append(variable_assignments[arg.name])
+                else:
+                    args.append(None)
+            elif isinstance(arg, Constant):
+                args.append(arg.value)
+            else:
+                # Should not happen
+                return []
+
+        # Retrieve facts for the predicate
+        predicate_facts = background_knowledge.get(literal.predicate.name, set())
+
+        possible_bindings = []
+
+        for fact in predicate_facts:
+            # Check if the fact matches the known assignments
+            match = True
+            new_bindings = {}
+
+            for arg_val, fact_val, arg in zip(args, fact, literal.args):
+                if arg_val is None:
+                    # Unbound variable; propose a new binding
+                    if isinstance(arg, Variable):
+                        new_bindings[arg.name] = fact_val
+                    else:
+                        raise Exception(
+                            "Unexpected non-varable arg in unbound variable position"
+                        )
+
+                elif arg_val != fact_val:
+                    # Known variable assignment does not match the fact's value
+                    match = False
+                    break  # No need to check further
+
+            if match:
+                possible_bindings.append(new_bindings)
+
+        return possible_bindings
+
+    def _satisfy_body(
+        self,
+        variable_assignments: dict[str, Any],
+        background_knowledge: dict[str, set[tuple]],
+        literal_index: int,
+    ):
+        """
+        Check if the example satisfies the rule,
+        possibly finding assignments for free variables.
+        :param example: A dict mapping Variables to values (from the example).
+        :return: True if the rule is satisfied for the given example, False otherwise.
+        """
+        # Base case: All literals have been satisfied
+        if literal_index >= len(self.body):
+            return True
+
+        literal = self.body[literal_index]
+
+        # Get possible bindings for the current literal
+        possible_bindings: list[dict[str, Any]] = self._get_possible_bindings(
+            literal, variable_assignments, background_knowledge
+        )
+
+        for binding in possible_bindings:
+            # Update variable assignments with new bindings
+            new_assignments = variable_assignments.copy()
+            new_assignments.update(binding)
+
+            # Recursive call to satisfy the next literal
+            if self._satisfy_body(
+                new_assignments, background_knowledge, literal_index + 1
+            ):
+                return True  # Found satisfying assignments for all literals
+
+        return False  # No satisfying assignments found for this literal

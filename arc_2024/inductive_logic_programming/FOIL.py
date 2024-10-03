@@ -55,29 +55,24 @@ class FOIL:
 
         while uncovered_pos:
             # Learn a new clause to cover positive examples
-            clause, best_pos_covered = self.new_clause(uncovered_pos, neg_examples)
+            clause, best_pos_covered = self._new_clause(uncovered_pos, neg_examples)
             # Remove positive examples covered by this clause
-            new_uncovered_pos = []
-            for uncovered in uncovered_pos:
-                for covered_posivive in best_pos_covered:
-                    is_pos_example_covered = True
-                    for key in uncovered.keys():
-                        if uncovered[key] != covered_posivive[key]:
-                            is_pos_example_covered = False
-                            break
-                    if is_pos_example_covered:
-                        break
-
-                if not is_pos_example_covered:
-                    new_uncovered_pos.append(uncovered)
-
-            uncovered_pos = new_uncovered_pos
+            uncovered_pos = [d for d in uncovered_pos if d not in best_pos_covered]
             self.rules.append(clause)
 
             if self.allow_recursion:
                 pass  # I think we need to add the clause to the background knowledge
 
-    def new_clause(
+    def predict(self, example: dict[str, Any]) -> bool:
+        """
+        Predict if the example is positive based on learned rules.
+        """
+        for rule in self.rules:
+            if rule.covers([example], self.background_knowledge):
+                return True
+        return False
+
+    def _new_clause(
         self,
         uncovered_pos_examples: list[dict[str, Any]],
         neg_examples: list[dict[str, Any]],
@@ -91,19 +86,15 @@ class FOIL:
         # Start with a clause with only the head (the target literal)
         clause: Clause = Clause(self.target_literal)
 
-        # Combine positive and negative examples
-        examples: list[tuple[bool, dict[str, Any]]] = [
-            (False, ex) for ex in neg_examples
-        ] + [(True, ex) for ex in uncovered_pos_examples]
+        old_positive_examples = copy.deepcopy(uncovered_pos_examples)
+        old_negative_examples = copy.deepcopy(neg_examples)
 
-        while [
-            ex for is_pos, ex in examples if not is_pos
-        ]:  # while negative examples are covered
+        while old_negative_examples:  # while negative examples are covered
             # Generate possible literals to add to the clause's body
-            candidate_literals: list[Literal] = self.new_literals(clause)
+            candidate_literals: list[Literal] = self._new_literals(clause)
 
             best_literal: Optional[Literal] = None
-            best_gain: float = 0
+            best_gain: float = 0.0
 
             # Evaluate each candidate literal
             for literal in candidate_literals:
@@ -113,49 +104,78 @@ class FOIL:
                 if literal == clause.head:
                     continue  # Avoid cycles
 
-                extended_examples: list[tuple[bool, dict[str, Any]]] = []
+                new_positive_examples: list[dict[str, Any]] = []
+                for example in old_positive_examples:
+                    new_positive_examples.extend(self._extend_example(example, literal))
 
-                for example in examples:
-                    extended_examples.extend(self.extend_example(example, literal))
+                new_non_extended_positive_examples = self._un_extend_examples(
+                    uncovered_pos_examples, new_positive_examples
+                )
 
-                new_clause = copy.deepcopy(clause)
-                new_clause.add_literal(literal)
+                new_non_extended_positive_examples_count = len(
+                    new_non_extended_positive_examples
+                )
+                new_positive_count = len(new_positive_examples)
+                new_negative_count = 0  # for now we assume best case is 0
+                old_positive_count = len(old_positive_examples)
+                old_negative_count = len(old_negative_examples)
 
-                pos_covered = [ex for is_pos, ex in extended_examples if is_pos]
-                neg_covered = [ex for is_pos, ex in extended_examples if not is_pos]
-
-                if not pos_covered:
+                if not new_positive_count:
                     continue  # Must cover some positive examples
 
-                gain = self.information_gain(
-                    len(pos_covered),
-                    len(neg_covered),
-                    len(uncovered_pos_examples),
-                    len(neg_examples),
+                # Now compute the maximum possible gain from substitutions
+                # so we can prune. Max gain is assuming that we will have no
+                # negative examples covered by the new literal
+                max_gain = self._information_gain(
+                    new_non_extended_positive_examples_count,
+                    new_positive_count,
+                    0,
+                    old_positive_count,
+                    old_negative_count,
+                )
+
+                # If max_gain is less than best_gain, prune and
+                # avoid extending negative examples
+                if max_gain < best_gain:
+                    continue
+
+                new_negative_examples: list[dict[str, Any]] = []
+                for example in old_negative_examples:
+                    new_negative_examples.extend(self._extend_example(example, literal))
+
+                new_negative_count = len(new_negative_examples)
+
+                gain = self._information_gain(
+                    new_non_extended_positive_examples_count,
+                    new_positive_count,
+                    new_negative_count,
+                    old_positive_count,
+                    old_negative_count,
                 )
 
                 if gain > best_gain:
                     best_gain = gain
                     best_literal = literal
-                    best_pos_covered = pos_covered
-                    best_neg_covered = neg_covered
+                    best_pos_covered = new_positive_examples
+                    best_neg_covered = new_negative_examples
+                    best_non_extended_pos_covered = new_non_extended_positive_examples
 
             if best_literal is None:
                 break  # No further improvement
 
             clause.add_literal(best_literal)
 
-            examples = [(False, ex) for ex in best_neg_covered] + [
-                (True, ex) for ex in best_pos_covered
-            ]
+            old_positive_examples = best_pos_covered
+            old_negative_examples = best_neg_covered
+
             best_literal = None
             best_gain = 0
 
-        return (clause, [ex for is_pos, ex in examples if is_pos])
+        return (clause, best_non_extended_pos_covered)
 
-    def extend_example(
-        self, example: tuple[bool, dict[str, Any]], literal_to_add: Literal
-    ) -> list[tuple[bool, dict[str, Any]]]:
+    def _extend_example(
+        self, example: dict[str, Any], literal_to_add: Literal
+    ) -> list[dict[str, Any]]:
         """
         Extend the example with the target predicate.
         """
@@ -163,7 +183,7 @@ class FOIL:
         # literal will be like Q(V1, V3)
         # need to loop over possible values
         # for V3 and add to examples if it satisfies the literal
-        extended_examples: list[tuple[bool, dict[str, Any]]] = []
+        extended_examples: list[dict[str, Any]] = []
         new_vars: list[Variable] = []
 
         for arg in literal_to_add.args:
@@ -174,12 +194,12 @@ class FOIL:
 
             # Check if the argument is a variable in the example
             # if so get value from example
-            if isinstance(arg, Variable) and arg.name not in example[1]:
+            if isinstance(arg, Variable) and arg.name not in example:
                 new_vars.append(arg)
                 continue
 
         if len(new_vars) == 0:
-            if evaluate_literal(literal_to_add, example[1], self.background_knowledge):
+            if evaluate_literal(literal_to_add, example, self.background_knowledge):
                 return [example]  # no new variables to add
             return []
 
@@ -189,16 +209,16 @@ class FOIL:
         new_var: Variable = new_vars[0]
 
         for value in new_var.arg_type.possible_values:
-            extended_example = (example[0], copy.deepcopy(example[1]))
-            extended_example[1][new_var.name] = value
+            extended_example = copy.deepcopy(example)
+            extended_example[new_var.name] = value
             if evaluate_literal(
-                literal_to_add, extended_example[1], self.background_knowledge
+                literal_to_add, extended_example, self.background_knowledge
             ):
                 extended_examples.append(extended_example)
 
         return extended_examples
 
-    def new_literals_for_predicate(
+    def _new_literals_for_predicate(
         self, predicate: Predicate, clause: Clause
     ) -> list[Literal]:
         """
@@ -242,11 +262,6 @@ class FOIL:
                 itertools.product(*new_vars_with_other_args_per_arg)
             )
 
-        # TODO: We need to check types of variables to ensure they are
-        # compatible with the predicate
-        # TODO: How do we favour literals that are not adding a new variable?
-        # Maybe this is done in the information gain calculation...
-
         # Create literals for each variable combination
         for vars in var_combinations:
             variables = list(vars)
@@ -262,7 +277,7 @@ class FOIL:
 
         return possible_literals
 
-    def new_literals(self, clause: Clause) -> list[Literal]:
+    def _new_literals(self, clause: Clause) -> list[Literal]:
         """
         Generate new literals to add to the clause.
         4 types of literals can be generated:
@@ -282,65 +297,69 @@ class FOIL:
         literals: list[Literal] = []
         for predicate in self.predicates:
             # Generate possible literals
-            literals.extend(self.new_literals_for_predicate(predicate, clause))
+            literals.extend(self._new_literals_for_predicate(predicate, clause))
 
         return literals
 
         # TODO: extend to include inequality literals
-        # TODO: see section on pruning in the paper
-
-    def predict(self, example: dict[str, Any]) -> bool:
-        """
-        Predict if the example is positive based on learned rules.
-        """
-        for rule in self.rules:
-            if rule.covers([example], self.background_knowledge):
-                return True
-        return False
 
     @staticmethod
-    def information_gain(
-        positive_new: int,
-        negative_new: int,
-        positive_old: int,
-        negative_old: int,
+    def _information_gain(
+        new_non_extended_positive_examples_count: int,
+        new_positive_count: int,
+        new_negative_count: int,
+        old_positive_count: int,
+        old_negative_count: int,
     ) -> float:
         """
-        Calculate the adjusted FOIL information gain when introducing new variables.
-        :param p_old: Number of positive examples covered before adding the new literal.
-        :param n_old: Number of negative examples covered before adding the new literal.
-        :param p_new: Number of positive examples covered after adding the new literal.
-        :param n_new: Number of negative examples covered after adding the new literal.
-        :return: The adjusted information gain value.
+        Calculate the adjusted FOIL information gain when introducing new literals.
         """
         # Avoid division by zero and log of zero
         if (
-            positive_new == 0
-            or (positive_new + negative_new) == 0
-            or (positive_old + negative_old) == 0
+            new_non_extended_positive_examples_count == 0
+            or new_positive_count == 0
+            or old_positive_count == 0
         ):
             return 0
 
         # Compute probabilities
-        prob_old = positive_old / (positive_old + negative_old)
-        prob_new = positive_new / (positive_new + negative_new)
+        prob_old = old_positive_count / (old_positive_count + old_negative_count)
+        prob_new = new_positive_count / (new_positive_count + new_negative_count)
 
-        # Ensure probabilities are positive
-        if prob_new == 0 or prob_old == 0:
-            return 0
+        # Calculate information
+        information_old = -math.log2(prob_old)
+        information_new = -math.log2(prob_new)
 
-        # Calculate the expansion factor f
-        f = (
-            positive_new / positive_old if positive_old > 0 else 1
-        )  # Avoid division by zero
-
-        # Ensure f is at least 1 to avoid negative gain due to floating point errors
-        if f < 1:
-            f = 1
-
-        # Compute the adjusted information gain
-        gain = positive_new * (
-            math.log2(prob_new) - math.log2(prob_old)
-        ) - positive_new * math.log2(f)
-
+        # Compute information gain
+        gain = new_non_extended_positive_examples_count * (
+            information_old - information_new
+        )
         return gain
+
+    @staticmethod
+    def _un_extend_examples(
+        old_positive_examples: list[dict[str, Any]],
+        new_positive_examples: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        This slighly odd function is best exmplained by the following
+        by look at the paper Leraning Logical Definitions
+        from Relations by Quinlan et al.
+        We are calculation the de extended examples in order to get T1++
+        """
+        is_pos_example_covered = True
+        non_extended_positive_examples: list[dict[str, Any]] = []
+        for old_example in old_positive_examples:
+            for new_posivive in new_positive_examples:
+                is_pos_example_covered = True
+                for key in old_example.keys():
+                    if old_example[key] != new_posivive[key]:
+                        is_pos_example_covered = False
+                        break
+                if is_pos_example_covered:
+                    break
+
+            if is_pos_example_covered:
+                non_extended_positive_examples.append(old_example)
+
+        return non_extended_positive_examples

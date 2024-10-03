@@ -74,4 +74,5 @@ def test_FOIL():
     foil = FOIL(target_literal, predicates, background_knowledge)
     foil.fit(examples)
 
-    # rules = foil.rules
+    for example in examples:
+        assert foil.predict(example[1]) == example[0]
