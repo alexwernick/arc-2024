@@ -3,13 +3,13 @@ from typing import Callable, Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from arc_2024.representations.colour import Color
+from arc_2024.representations.colour import Colour
 
 RelationshipType = Callable[["Shape"], bool]
 
 
 class Shape:
-    colour: Optional[Color]
+    colour: Optional[Colour]
     width: int
     height: int
     position: Tuple[int, int]
@@ -20,7 +20,7 @@ class Shape:
 
     def __init__(
         self,
-        colour: Optional[Color],
+        colour: Optional[Colour],
         position: Tuple[int, int],
         mask: NDArray[np.int16],
     ):
@@ -73,6 +73,9 @@ class Shape:
             position_equal = self.position == other.position
             return array_equal and colour_equal and position_equal
         return False
+
+    def __repr__(self):
+        return f"Shape({self.colour}, {self.position}, {self.mask})"
 
     def is_exact_match(self, other: "Shape") -> bool:
         """
@@ -214,3 +217,14 @@ class Shape:
         Returns True if self and other have the same colour
         """
         return self.colour == other.colour
+
+    def all_pixels(self) -> list[Tuple[int, int]]:
+        """
+        Returns all pixels in the shape
+        """
+        pixels = []
+        for i in range(self.height):
+            for j in range(self.width):
+                if self.mask[i, j]:
+                    pixels.append((self.position[0] + i, self.position[1] + j))
+        return pixels

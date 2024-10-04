@@ -1,6 +1,6 @@
 import pytest
 
-from arc_2024.representations.colour import Color
+from arc_2024.representations.colour import Colour
 from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape
 
@@ -15,7 +15,7 @@ def test_interprets_all_individual_pixels_of_colour(interpreter: Interpreter):
     test_inputs_shapes = interpreted_shapes.test_inputs
 
     # Define the condition to check
-    def pixel_exists_in_shapes(shape: Shape, color: Color, j: int, k: int) -> bool:
+    def pixel_exists_in_shapes(shape: Shape, color: Colour, j: int, k: int) -> bool:
         return (
             shape.num_of_coloured_pixels == 1
             and shape.height == 1
@@ -32,7 +32,7 @@ def test_interprets_all_individual_pixels_of_colour(interpreter: Interpreter):
                     if input[j, k] == 0:
                         continue
 
-                    color = Color(input[j, k])
+                    color = Colour(input[j, k])
                     matching_shapes = [
                         shape
                         for shape in shapes[i]

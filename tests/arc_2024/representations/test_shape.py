@@ -439,3 +439,16 @@ def test_is_mask_overlapping(shape1, shape2, expected_result):
 
     # Verify code
     assert result == expected_result
+
+
+def test_all_pixels():
+    # Setup code
+    shape = Shape(
+        None, (2, 3), np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16)
+    )
+
+    # Exercise code
+    result = shape.all_pixels()
+
+    # Verify code
+    assert result == [(2, 3), (3, 3), (4, 3), (4, 4), (4, 5)]

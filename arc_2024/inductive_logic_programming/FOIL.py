@@ -208,7 +208,7 @@ class FOIL:
 
         new_var: Variable = new_vars[0]
 
-        for value in new_var.arg_type.possible_values:
+        for value in new_var.arg_type.possible_values(example):
             extended_example = copy.deepcopy(example)
             extended_example[new_var.name] = value
             if evaluate_literal(

@@ -3,7 +3,7 @@ from typing import List, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from arc_2024.representations.colour import Color
+from arc_2024.representations.colour import Colour
 from arc_2024.representations.shape import Shape
 
 
@@ -104,7 +104,7 @@ class Interpreter:
         if grid.ndim != 2:
             raise ValueError("grid Array must be 2D")
 
-        current_colour = Color(grid[starting_j, starting_k])
+        current_colour = Colour(grid[starting_j, starting_k])
         # we make a mask the size of the
         # whole grid and then chop it down later
         mask = np.zeros((grid.shape[0], grid.shape[1]), dtype=np.int16)
@@ -124,7 +124,7 @@ class Interpreter:
                 searched_space.add((explore_j, explore_k))
                 continue
 
-            if Color(grid[explore_j, explore_k]) != current_colour:
+            if Colour(grid[explore_j, explore_k]) != current_colour:
                 # we don't add different colours to the seached space
                 # as they need to be evaluated in another loop
                 continue
@@ -155,7 +155,7 @@ class Interpreter:
             for k in range(grid.shape[1]):
                 # isn't blank
                 if grid[j, k] != 0:
-                    colour = Color(grid[j, k])
+                    colour = Colour(grid[j, k])
                     pixels.append(Shape(colour, (j, k), np.array([[1]])))
 
         return pixels

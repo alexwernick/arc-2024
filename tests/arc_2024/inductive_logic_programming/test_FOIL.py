@@ -7,7 +7,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 from arc_2024.inductive_logic_programming.FOIL import FOIL
 
 
-def test_FOIL():
+def test_FOIL_with_simple_example():
     """
     Test FOIL algorithm
     This example is taken from the paper

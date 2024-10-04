@@ -1,17 +1,32 @@
-from typing import Any, List, Union
+from typing import Any, Callable, List, Optional, Union
 
 
 class ArgType:
     name: str
-    possible_values: list
+    _possible_values: Optional[list]
+    _possible_values_fn: Optional[Callable[[dict[str, Any]], list]]
 
-    def __init__(self, name: str, possible_values: list):
+    def __init__(
+        self,
+        name: str,
+        possible_values: Optional[list] = None,
+        possible_values_fn: Optional[Callable[[dict[str, Any]], list]] = None,
+    ):
         """
         Initialize an ArgType.
         :param name: Name of the argument type (e.g., 'person').
+        :possible_values: List of possible values for the argument type.
+        :possible_values_fn: Function that returns possible values
+        for the argument type based on an example.
         """
+        if possible_values is None and possible_values_fn is None:
+            raise ValueError(
+                "Either possible_values or possible_values_fn must be provided"
+            )
+
         self.name = name
-        self.possible_values = possible_values
+        self._possible_values = possible_values
+        self._possible_values_fn = possible_values_fn
 
     def __repr__(self):
         """
@@ -30,6 +45,16 @@ class ArgType:
         Hash function to allow argument types to be used in sets and as dictionary keys.
         """
         return hash(self.name)
+
+    def possible_values(self, example: dict[str, Any]) -> list:
+        if self._possible_values_fn:
+            return self._possible_values_fn(example)
+
+        if self._possible_values:
+            return self._possible_values
+
+        # this should never happen due to constructor validation
+        raise ValueError("No possible values defined for this argument type")
 
 
 class Variable:
@@ -112,24 +137,6 @@ class Predicate:
         Hash function to allow predicates to be used in sets and as dictionary keys.
         """
         return hash((self.name, self.arity))
-
-    def are_valid_args(self, args: List[Argument]) -> bool:
-        """
-        Check if the arguments are valid for this predicate.
-        :param args: A list of arguments to check.
-        :return: True if the arguments are valid, False otherwise.
-        """
-        if len(args) != self.arity:
-            return False
-
-        for arg, arg_type in zip(args, self.arg_types):
-            if isinstance(arg, Variable) and arg.arg_type != arg_type:
-                return False
-
-            if isinstance(arg, Constant) and arg.value not in arg_type.possible_values:
-                return False
-
-        return True
 
 
 class Literal:
