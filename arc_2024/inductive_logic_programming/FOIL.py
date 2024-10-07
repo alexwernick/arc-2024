@@ -8,6 +8,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
     Constant,
     Literal,
     Predicate,
+    RuleBasedPredicate,
     Variable,
     evaluate_literal,
 )
@@ -219,7 +220,10 @@ class FOIL:
         return extended_examples
 
     def _new_literals_for_predicate(
-        self, predicate: Predicate, clause: Clause
+        self,
+        predicate: Predicate,
+        clause: Clause,
+        allow_variable_extension: bool = True,
     ) -> list[Literal]:
         """
         Generate possible literals to add to a clause's body.
@@ -232,19 +236,17 @@ class FOIL:
         # get the literals already used in the clause so we don't repeat
         used_literals = set(clause.body)
 
+        if isinstance(predicate, RuleBasedPredicate):
+            # Rule based preds need bound args when
+            # checking coverage
+            allow_variable_extension = False
+
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
         for var in current_vars:
             for i, arg_type in enumerate(predicate.arg_types):
                 if arg_type == var.arg_type:
                     valid_vars_per_arg[i].append(var)
-
-        # Introduce new variables (e.g., V1, V2)
-        # We create a single additional variable for each type of argument
-        new_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
-        new_var_number = 1 + len(clause.variables)
-        for i, arg_type in enumerate(predicate.arg_types):
-            new_vars_per_arg[i].append(Variable(f"V{new_var_number}", arg_type))
 
         # Generate all combinations of existing variables
         var_combinations = [
@@ -253,14 +255,24 @@ class FOIL:
             if len(set(combo)) == len(combo)  # avoid duplicates
         ]
 
-        # append the combinations of the new variable with the other variables
-        for i, new_vars in enumerate(new_vars_per_arg):
-            new_vars_with_other_args_per_arg = (
-                valid_vars_per_arg[:i] + [new_vars] + valid_vars_per_arg[i + 1 :]
-            )
-            var_combinations.extend(
-                itertools.product(*new_vars_with_other_args_per_arg)
-            )
+        if allow_variable_extension:
+            # Introduce new variables (e.g., V1, V2)
+            # We create a single additional variable for each type of argument
+            new_vars_per_arg: list[list[Variable]] = [
+                [] for _ in range(predicate.arity)
+            ]
+            new_var_number = 1 + len(clause.variables)
+            for i, arg_type in enumerate(predicate.arg_types):
+                new_vars_per_arg[i].append(Variable(f"V{new_var_number}", arg_type))
+
+            # append the combinations of the new variable with the other variables
+            for i, new_vars in enumerate(new_vars_per_arg):
+                new_vars_with_other_args_per_arg = (
+                    valid_vars_per_arg[:i] + [new_vars] + valid_vars_per_arg[i + 1 :]
+                )
+                var_combinations.extend(
+                    itertools.product(*new_vars_with_other_args_per_arg)
+                )
 
         # Create literals for each variable combination
         for vars in var_combinations:
@@ -277,7 +289,9 @@ class FOIL:
 
         return possible_literals
 
-    def _new_literals(self, clause: Clause) -> list[Literal]:
+    def _new_literals(
+        self, clause: Clause, allow_variable_extension: bool = True
+    ) -> list[Literal]:
         """
         Generate new literals to add to the clause.
         4 types of literals can be generated:
@@ -297,7 +311,11 @@ class FOIL:
         literals: list[Literal] = []
         for predicate in self.predicates:
             # Generate possible literals
-            literals.extend(self._new_literals_for_predicate(predicate, clause))
+            literals.extend(
+                self._new_literals_for_predicate(
+                    predicate, clause, allow_variable_extension
+                )
+            )
 
         return literals
 

@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Callable, List, Optional, Union
 
 
@@ -139,6 +140,31 @@ class Predicate:
         return hash((self.name, self.arity))
 
 
+class RuleBasedPredicate(Predicate):
+    eval_fn: Callable[..., bool]
+
+    def __init__(
+        self,
+        name: str,
+        arity: int,
+        arg_types: list[ArgType],
+        eval_fn: Callable[..., bool],
+    ):
+        super().__init__(name, arity, arg_types)
+
+        signature = inspect.signature(eval_fn)
+        parameters = signature.parameters
+        if len(parameters) != arity:
+            raise ValueError(
+                f"Predicate '{name}' requires eval_fn to have arity: {arity} parameters"
+            )
+
+        self.eval_fn = eval_fn
+
+    def evaluate(self, *args: Any) -> bool:
+        return self.eval_fn(*args)
+
+
 class Literal:
     predicate: Predicate
     args: List[Argument]
@@ -220,14 +246,19 @@ def evaluate_literal(
 
         raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
 
+    # If it's rule based we use rule and don't evaluate background knowledge
+    if isinstance(literal.predicate, RuleBasedPredicate):
+        if literal.negated:
+            return not literal.predicate.evaluate(*bound_args)
+        return literal.predicate.evaluate(*bound_args)
+
     # Retrieve the predicate's facts
     predicate_facts = background_knowledge.get(literal.predicate.name, set())
 
     # Check if the bound arguments are in the predicate's facts
     if literal.negated:
         return tuple(bound_args) not in predicate_facts
-    else:
-        return tuple(bound_args) in predicate_facts
+    return tuple(bound_args) in predicate_facts
 
 
 class Clause:
@@ -307,6 +338,9 @@ class Clause:
         :param variable_assignments: Current assignments for variables (dict).
         :return: A list of possible new bindings (list of dicts).
         """
+        # TODO: How does this work with negated literals?
+        # Right now I don't think it does
+
         # Prepare the arguments with current assignments, identify unbound variables
         args = []
         for arg in literal.args:
@@ -320,6 +354,15 @@ class Clause:
             else:
                 # Should not happen
                 return []
+
+        # If it's rule based we use rule and don't evaluate background knowledge
+        if isinstance(literal.predicate, RuleBasedPredicate):
+            if None in args:
+                raise ValueError("Rule based predicates can't have unbound variables")
+
+            if literal.predicate.evaluate(*args):
+                return args
+            return []
 
         # Retrieve facts for the predicate
         predicate_facts = background_knowledge.get(literal.predicate.name, set())

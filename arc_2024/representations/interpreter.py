@@ -143,7 +143,7 @@ class Interpreter:
 
         position = Interpreter._find_smallest_indices_with_q(mask, 1)
         mask = Interpreter._remove_zero_rows_and_cols(mask)
-        return Shape(current_colour, position, mask)
+        return Shape(current_colour, position, mask, True)
 
     @staticmethod
     def _interpret_individual_pixels(grid: NDArray[np.int16]) -> List[Shape]:
@@ -156,7 +156,7 @@ class Interpreter:
                 # isn't blank
                 if grid[j, k] != 0:
                     colour = Colour(grid[j, k])
-                    pixels.append(Shape(colour, (j, k), np.array([[1]])))
+                    pixels.append(Shape(colour, (j, k), np.array([[1]]), False))
 
         return pixels
 
@@ -180,8 +180,8 @@ class Interpreter:
                 )
 
                 # we don't add single squares as they are already added as pixels
-                if discovered_shape.num_of_coloured_pixels > 1:
-                    shapes.append(discovered_shape)
+                # if discovered_shape.num_of_coloured_pixels > 1:
+                shapes.append(discovered_shape)
         return shapes
 
     @staticmethod

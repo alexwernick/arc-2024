@@ -17,12 +17,14 @@ class Shape:
     num_of_coloured_pixels: int
     centre: Tuple[float, float]
     relationships: dict[str, RelationshipType]
+    is_top_level: bool
 
     def __init__(
         self,
         colour: Optional[Colour],
         position: Tuple[int, int],
         mask: NDArray[np.int16],
+        is_top_level: bool = False,  # only doing to satisfy test setups. Need to remove
     ):
         if mask.ndim != 2:
             raise ValueError("Array must be 2D")
@@ -39,6 +41,7 @@ class Shape:
         self.left_most = self.position[1]
         self.bottom_most = self.position[0] + self.height - 1
         self.top_most = self.position[0]
+        self.is_top_level = is_top_level
 
         # The below calculation ensures that for a 2*2 grid with position (0,0)
         # the center would be (0.5, 0.5). For a 3*3 grid with position (0,0)
@@ -211,6 +214,12 @@ class Shape:
             and self.left_most >= other.left_most
             and self.right_most <= other.right_most
         )
+
+    def is_inside_not_overlapping(self, other: "Shape") -> bool:
+        """
+        Returns True if self is inside other and not overlapping
+        """
+        return self.is_inside(other) and not self.is_mask_overlapping(other)
 
     def is_same_colour(self, other: "Shape") -> bool:
         """

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 from dotenv import load_dotenv
 
 from arc_2024.data_management.data_manager import DataManager
@@ -27,7 +28,14 @@ def main():
 
     solver = Solver(inputs, outputs, test_inputs)
 
-    solver.solve()
+    results = solver.solve()
+
+    for result, test_output in zip(results, test_outputs):
+        correct_solution = np.array_equal(result, test_output)
+        if correct_solution:
+            print("Task 6d75e8bb was solved correctly")
+        else:
+            print("Task 6d75e8bb was solved incorrectly")
 
     # for unsolved_task in data_manager.get_unsolved_tasks():
     #     with open(
