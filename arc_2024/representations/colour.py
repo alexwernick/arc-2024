@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class Colour(Enum):
+    EMPTY = 0
     BLUE = 1
     RED = 2
     GREEN = 3

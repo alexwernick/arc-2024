@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -124,56 +124,120 @@ class Shape:
         """
         Returns True if self is above other
         """
-        return self.centre[0] < other.centre[0]
+        return self.is_above_i(other.centre[0])
+
+    def is_above_i(self, i: Union[int, float]) -> bool:
+        """
+        Returns True if self is above i
+        """
+        return self.centre[0] < i
 
     def is_below(self, other: "Shape") -> bool:
         """
         Returns True if self is below other
         """
-        return self.centre[0] > other.centre[0]
+        return self.is_below_i(other.centre[0])
+
+    def is_below_i(self, i: Union[int, float]) -> bool:
+        """
+        Returns True if self is below i
+        """
+        return self.centre[0] > i
 
     def is_left_of(self, other: "Shape") -> bool:
         """
         Returns True if self is left of other
         """
-        return self.centre[1] < other.centre[1]
+        return self.is_left_of_j(other.centre[1])
+
+    def is_left_of_j(self, j: Union[int, float]) -> bool:
+        """
+        Returns True if self is left of i
+        """
+        return self.centre[1] < j
 
     def is_right_of(self, other: "Shape") -> bool:
         """
         Returns True if self is right of other
         """
-        return self.centre[1] > other.centre[1]
+        return self.is_right_of_j(other.centre[1])
+
+    def is_right_of_j(self, j: Union[int, float]) -> bool:
+        """
+        Returns True if self is right of i
+        """
+        return self.centre[1] > j
 
     def is_inline_horizontally_above_right(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and above and to the right
         """
-        above_by = other.centre[0] - self.centre[0]
-        right_by = self.centre[1] - other.centre[1]
+        return self.is_inline_horizontally_above_right_ij(
+            other.centre[0], other.centre[1]
+        )
+
+    def is_inline_horizontally_above_right_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self inline with i,j horizontally and above and to the right
+        """
+        above_by = i - self.centre[0]
+        right_by = self.centre[1] - j
         return above_by == right_by and above_by > 0
 
     def is_inline_horizontally_above_left(self, other: "Shape") -> bool:
         """
-        Returns True if self inline with other horizontally and above and to the left
+        Returns True if self inline with i,j horizontally and above and to the left
         """
-        above_by = other.centre[0] - self.centre[0]
-        left_by = other.centre[1] - self.centre[1]
+        return self.is_inline_horizontally_above_left_ij(
+            other.centre[0], other.centre[1]
+        )
+
+    def is_inline_horizontally_above_left_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self inline with i,j horizontally and above and to the left
+        """
+        above_by = i - self.centre[0]
+        left_by = j - self.centre[1]
         return above_by == left_by and above_by > 0
 
     def is_inline_horizontally_below_right(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and below and to the right
         """
-        below_by = self.centre[0] - other.centre[0]
-        right_by = self.centre[1] - other.centre[1]
+        return self.is_inline_horizontally_below_right_ij(
+            other.centre[0], other.centre[1]
+        )
+
+    def is_inline_horizontally_below_right_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self inline with i,j horizontally and below and to the right
+        """
+        below_by = self.centre[0] - i
+        right_by = self.centre[1] - j
         return below_by == right_by and below_by > 0
 
     def is_inline_horizontally_below_left(self, other: "Shape") -> bool:
         """
         Returns True if self inline with other horizontally and below and to the left
         """
-        below_by = self.centre[0] - other.centre[0]
-        left_by = other.centre[1] - self.centre[1]
+        return self.is_inline_horizontally_below_left_ij(
+            other.centre[0], other.centre[1]
+        )
+
+    def is_inline_horizontally_below_left_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self inline with i,j horizontally and below and to the left
+        """
+        below_by = self.centre[0] - i
+        left_by = j - self.centre[1]
         return below_by == left_by and below_by > 0
 
     def is_inline_above_vertically(self, other: "Shape") -> bool:
@@ -184,12 +248,32 @@ class Shape:
             self.is_left_of(other) or self.is_right_of(other)
         )
 
+    def is_inline_above_vertically_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self is inline with i,j vertically and above
+        """
+        return self.is_above_i(i) and not (
+            self.is_left_of_j(j) or self.is_right_of_j(j)
+        )
+
     def is_inline_below_vertically(self, other: "Shape") -> bool:
         """
         Returns True if self is inline with other vertically and below
         """
         return self.is_below(other) and not (
             self.is_left_of(other) or self.is_right_of(other)
+        )
+
+    def is_inline_below_vertically_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self is inline with i,j vertically and below
+        """
+        return self.is_below_i(i) and not (
+            self.is_left_of_j(j) or self.is_right_of_j(j)
         )
 
     def is_inline_left_horizontally(self, other: "Shape") -> bool:
@@ -200,6 +284,14 @@ class Shape:
             self.is_above(other) or self.is_below(other)
         )
 
+    def is_inline_left_horizontally_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self is inline with i,j horizontally and left
+        """
+        return self.is_left_of_j(j) and not (self.is_above_i(i) or self.is_below_i(i))
+
     def is_inline_right_horizontally(self, other: "Shape") -> bool:
         """
         Returns True if self is inline with other horizontally and right
@@ -208,15 +300,43 @@ class Shape:
             self.is_above(other) or self.is_below(other)
         )
 
+    def is_inline_right_horizontally_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> bool:
+        """
+        Returns True if self is inline with i,j horizontally and right
+        """
+        return self.is_right_of_j(j) and not (self.is_above_i(i) or self.is_below_i(i))
+
     def is_mask_overlapping(self, other: "Shape") -> bool:
         """
         Returns True if self's mask overlaps with other's mask
         """
+        return self._is_mask_overlapping(
+            other.height, other.width, other.position, other.mask
+        )
+
+    def is_mask_overlapping_ij(self, i: int, j: int) -> bool:
+        """
+        Returns True if self's mask overlaps with i,j
+        """
+        return self._is_mask_overlapping(1, 1, (i, j), np.array([[1]]))
+
+    def _is_mask_overlapping(
+        self,
+        other_height: int,
+        other_width: int,
+        other_position: Tuple[int, int],
+        other_mask: NDArray[np.int16],
+    ) -> bool:
+        """
+        Returns True if masks overlap
+        """
         # Define the larger grid size
         max_height = max(
-            self.position[0] + self.height, other.position[0] + other.height
+            self.position[0] + self.height, other_position[0] + other_height
         )
-        max_width = max(self.position[1] + self.width, other.position[1] + other.width)
+        max_width = max(self.position[1] + self.width, other_position[1] + other_width)
         grid_size = (max_height, max_width)
 
         # Create the larger grid initialized to zeros
@@ -231,9 +351,9 @@ class Shape:
 
         # Place other.mask onto other_relative_mask
         other_relative_mask[
-            other.position[0] : other.position[0] + other.height,
-            other.position[1] : other.position[1] + other.width,
-        ] = other.mask
+            other_position[0] : other_position[0] + other_height,
+            other_position[1] : other_position[1] + other_width,
+        ] = other_mask
 
         # Check for overlap using logical_and
         return np.any(np.logical_and(self_relative_mask, other_relative_mask))
@@ -249,11 +369,28 @@ class Shape:
             and self.right_most <= other.right_most
         )
 
+    def is_ij_inside(self, i: int, j: int) -> bool:
+        """
+        Returns True if i,j inside self
+        """
+        return (
+            self.top_most <= i
+            and self.bottom_most >= i
+            and self.left_most <= j
+            and self.right_most >= j
+        )
+
     def is_inside_not_overlapping(self, other: "Shape") -> bool:
         """
         Returns True if self is inside other and not overlapping
         """
         return self.is_inside(other) and not self.is_mask_overlapping(other)
+
+    def is_ij_inside_not_overlapping(self, i: int, j: int) -> bool:
+        """
+        Returns True if i,j inside self and not overlapping
+        """
+        return self.is_ij_inside(i, j) and not self.is_mask_overlapping_ij(i, j)
 
     def is_same_colour(self, other: "Shape") -> bool:
         """

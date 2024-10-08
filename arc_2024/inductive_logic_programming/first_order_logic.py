@@ -361,7 +361,7 @@ class Clause:
                 raise ValueError("Rule based predicates can't have unbound variables")
 
             if literal.predicate.evaluate(*args):
-                return args
+                return [{}]
             return []
 
         # Retrieve facts for the predicate

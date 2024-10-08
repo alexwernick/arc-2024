@@ -162,7 +162,9 @@ class FOIL:
                     best_non_extended_pos_covered = new_non_extended_positive_examples
 
             if best_literal is None:
-                break  # No further improvement
+                raise Exception(
+                    "Could not find a valid clause"
+                )  # No further improvement
 
             clause.add_literal(best_literal)
 

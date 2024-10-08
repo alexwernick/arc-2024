@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List
 
 import numpy as np
 from numpy.typing import NDArray
@@ -38,6 +38,10 @@ class Solver:
     _MASK_OVERLAPPING_PRED_NAME = "mask-overlapping"
     _INSIDE_PRED_NAME = "inside"
     _INSIDE_NOT_OVERLAPPING_PRED_NAME = "inside-not-overlapping"
+    _TOP_LEFT_BOTTOM_RIGHT_DIAG_PRED_NAME = "top-left-bottom-right-diag"
+    _BOTTOM_LEFT_TOP_RIGHT_DIAG_PRED_NAME = "bottom-left-top-right-diag"
+    _MIXED_COLOUR_SHAPE_PRED_NAME = "mixed-shape"
+    _SINGLE_COLOUR_SHAPE_PRED_NAME = "single-colour-shape"
 
     def __init__(
         self,
@@ -108,71 +112,89 @@ class Solver:
         empty_pred = Predicate(
             self._EMPTY_PRED_NAME, 3, [example_number_arg, i_arg, j_arg]
         )
-        above_pred = Predicate(
-            self._ABOVE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # above_pred = Predicate(
+        #     self._ABOVE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # )
+        # below_pred = Predicate(
+        #     self._BELOW_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # )
+        # left_of_pred = Predicate(
+        #     self._LEFT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # )
+        # right_of_pred = Predicate(
+        #     self._RIGHT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # )
+        # inline_horizontally_above_right_pred = Predicate(
+        #     self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_horizontally_above_left_pred = Predicate(
+        #     self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_horizontally_below_right_pred = Predicate(
+        #     self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_horizontally_below_left_pred = Predicate(
+        #     self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_above_vertically_pred = Predicate(
+        #     self._INLINE_ABOVE_VERTICALLY_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_below_vertically_pred = Predicate(
+        #     self._INLINE_BELOW_VERTICALLY_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_left_horizontally_pred = Predicate(
+        #     self._INLINE_LEFT_HORIZONTALLY_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inline_right_horizontally_pred = Predicate(
+        #     self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # mask_overlapping_pred = Predicate(
+        #     self._MASK_OVERLAPPING_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )  # noqa: E501
+        # inside_prod = Predicate(
+        #     self._INSIDE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        # )
+        # inside_not_overlapping_pred = Predicate(
+        #     self._INSIDE_NOT_OVERLAPPING_PRED_NAME,
+        #     4,
+        #     [example_number_arg, i_arg, j_arg, shape_arg],
+        # )
+        top_left_bottom_right_diag_pred = RuleBasedPredicate(
+            self._TOP_LEFT_BOTTOM_RIGHT_DIAG_PRED_NAME,
+            3,
+            [example_number_arg, i_arg, j_arg],
+            self._get_top_left_bottom_right_diag_eval_func(),
         )
-        below_pred = Predicate(
-            self._BELOW_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        bottom_left_top_right_diag_pred = RuleBasedPredicate(
+            self._BOTTOM_LEFT_TOP_RIGHT_DIAG_PRED_NAME,
+            3,
+            [example_number_arg, i_arg, j_arg],
+            self._get_bottom_left_top_right_diag_eval_func(),
         )
-        left_of_pred = Predicate(
-            self._LEFT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        )
-        right_of_pred = Predicate(
-            self._RIGHT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        )
-        inline_horizontally_above_right_pred = Predicate(
-            self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_horizontally_above_left_pred = Predicate(
-            self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_horizontally_below_right_pred = Predicate(
-            self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_horizontally_below_left_pred = Predicate(
-            self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_above_vertically_pred = Predicate(
-            self._INLINE_ABOVE_VERTICALLY_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_below_vertically_pred = Predicate(
-            self._INLINE_BELOW_VERTICALLY_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_left_horizontally_pred = Predicate(
-            self._INLINE_LEFT_HORIZONTALLY_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inline_right_horizontally_pred = Predicate(
-            self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        mask_overlapping_pred = Predicate(
-            self._MASK_OVERLAPPING_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
-        inside_prod = Predicate(
-            self._INSIDE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        )
-        inside_not_overlapping_pred = Predicate(
-            self._INSIDE_NOT_OVERLAPPING_PRED_NAME,
-            4,
-            [example_number_arg, i_arg, j_arg, shape_arg],
-        )
+        # mixed_colour_shape_pred = Predicate(
+        #     self._MIXED_COLOUR_SHAPE_PRED_NAME, 1, [shape_arg]
+        # )
+        # single_colour_shape_pred = Predicate(
+        #     self._SINGLE_COLOUR_SHAPE_PRED_NAME, 1, [shape_arg]
+        # )
 
         shape_colour_predicates: list[Predicate] = []
         colour_predicates: list[Predicate] = []
@@ -245,34 +267,51 @@ class Solver:
                 )
 
         shape_colour_count_predicates: list[Predicate] = []
-        for possible_count in self._extract_all_possible_colour_counts(inputs_shapes):
+        for possible_count in self._extract_all_possible_colour_counts_for_shapes(
+            inputs_shapes
+        ):
             shape_colour_count_predicates.append(
                 Predicate(f"shape-colour-count-{possible_count}", 1, [shape_arg])
+            )
+
+        grid_colour_count_predicates: list[Predicate] = []
+        for possible_count in self._extract_all_possible_colour_counts_for_grids():
+            grid_colour_count_predicates.append(
+                Predicate(
+                    f"grid-colour-count-{possible_count}", 1, [example_number_arg]
+                )
             )
 
         predicates = [
             input_pred,
             empty_pred,
-            inside_prod,
-            above_pred,
-            below_pred,
-            left_of_pred,
-            right_of_pred,
-            inline_horizontally_above_right_pred,
-            inline_horizontally_above_left_pred,
-            inline_horizontally_below_right_pred,
-            inline_horizontally_below_left_pred,
-            inline_above_vertically_pred,
-            inline_below_vertically_pred,
-            inline_left_horizontally_pred,
-            inline_right_horizontally_pred,
-            mask_overlapping_pred,
-            inside_not_overlapping_pred,
+            # inside_prod,
+            # above_pred,
+            # below_pred,
+            # left_of_pred,
+            # right_of_pred,
+            # inline_horizontally_above_right_pred,
+            # inline_horizontally_above_left_pred,
+            # inline_horizontally_below_right_pred,
+            # inline_horizontally_below_left_pred,
+            # inline_above_vertically_pred,
+            # inline_below_vertically_pred,
+            # inline_left_horizontally_pred,
+            # inline_right_horizontally_pred,
+            # mask_overlapping_pred,
+            # inside_not_overlapping_pred,
+            bottom_left_top_right_diag_pred,
+            top_left_bottom_right_diag_pred,
+            # I don't think these have any vlaue as we have
+            # the colour count which is more informative
+            # mixed_colour_shape_pred,
+            # single_colour_shape_pred
         ]
 
-        predicates.extend(shape_colour_predicates)
+        # predicates.extend(shape_colour_predicates)
         predicates.extend(colour_predicates)
         predicates.extend(shape_colour_count_predicates)
+        predicates.extend(grid_colour_count_predicates)
         predicates.extend(inequality_predicates)
 
         # Examples
@@ -312,6 +351,11 @@ class Solver:
         for predicate in predicates:
             background_knowledge[predicate.name] = set()
 
+        # add grid style bk
+        self._append_background_knowledge_for_grids(
+            self.inputs, grid_colour_count_predicates, background_knowledge
+        )
+
         # bk relating input and output shapes
         # bk relating shapes
         # We assume here input and output grid are the same size
@@ -321,21 +365,18 @@ class Solver:
             for i in range(output_grid.shape[0]):
                 for j in range(output_grid.shape[1]):
                     for input_shape_index, input_shape in enumerate(input_shapes):
+                        # for now lets ignore pixels
+                        if input_shape.shape_type == ShapeType.PIXEL:
+                            continue
+
                         input_shape_name = self._generate_shape_name(
                             ex_number, True, input_shape_index
                         )
-                        shape_colour: Optional[Colour] = None
-                        if output_grid[i, j] != 0:
-                            shape_colour = Colour(output_grid[i, j])
 
                         self._append_background_knowledge_for_shapes(
                             background_knowledge,
-                            Shape(
-                                shape_colour,
-                                (i, j),
-                                np.array([[1]]),
-                                shape_type=ShapeType.PIXEL,
-                            ),
+                            i,
+                            j,
                             input_shape,
                             ex_number,
                             input_shape_name,
@@ -363,6 +404,7 @@ class Solver:
             test_inputs_shapes,
             shape_colour_predicates,
             shape_colour_count_predicates,
+            grid_colour_count_predicates,
             possible_colours,
         )
 
@@ -384,7 +426,7 @@ class Solver:
         return list(possible_colours)
 
     @staticmethod
-    def _extract_all_possible_colour_counts(
+    def _extract_all_possible_colour_counts_for_shapes(
         inputs_shapes: List[List[Shape]],
     ) -> List[int]:
         possible_counts: set[int] = set()
@@ -393,6 +435,21 @@ class Solver:
                 possible_counts.add(input_shape.colour_count)
 
         return list(possible_counts)
+
+    def _extract_all_possible_colour_counts_for_grids(self) -> List[int]:
+        possible_counts: set[int] = set()
+        for input in self.inputs:
+            count = self._get_grid_colour_count(input)
+            possible_counts.add(count)
+
+        return list(possible_counts)
+
+    @staticmethod
+    def _get_grid_colour_count(grid: NDArray[np.int16]):
+        unique_elements = np.unique(grid)
+        # remove 0
+        unique_elements = [x for x in unique_elements if x != 0]
+        return len(unique_elements)
 
     # We make and assumption here that the input and output
     # grid shapes are the same size. We will need to learn
@@ -456,16 +513,59 @@ class Solver:
     def _get_more_than_eval_func(value: int) -> Callable[..., bool]:
         return lambda x: x > value
 
+    def _get_top_left_bottom_right_diag_eval_func(self) -> Callable[..., bool]:
+        # we assume input grids size equal outputs
+        test_number_offset = 100
+        is_square: dict[int, bool] = {}
+        for ex, input_grid in enumerate(self.inputs):
+            if input_grid.shape[0] == input_grid.shape[1]:
+                is_square[ex] = True
+            else:
+                is_square[ex] = False
+
+        for ex, input_grid in enumerate(self.test_inputs):
+            if input_grid.shape[0] == input_grid.shape[1]:
+                is_square[ex + test_number_offset] = True
+            else:
+                is_square[ex + test_number_offset] = False
+
+        return lambda ex_number, i, j: is_square[ex_number] and i == j
+
+    def _get_bottom_left_top_right_diag_eval_func(self) -> Callable[..., bool]:
+        # we assume input grids size equal outputs
+        test_number_offset = 100
+        is_square: dict[int, bool] = {}
+        heights: dict[int, int] = {}
+        for ex, input_grid in enumerate(self.inputs):
+            heights[ex] = input_grid.shape[0]
+            if input_grid.shape[0] == input_grid.shape[1]:
+                is_square[ex] = True
+            else:
+                is_square[ex] = False
+
+        for ex, input_grid in enumerate(self.test_inputs):
+            heights[ex + test_number_offset] = input_grid.shape[0]
+            if input_grid.shape[0] == input_grid.shape[1]:
+                is_square[ex + test_number_offset] = True
+            else:
+                is_square[ex + test_number_offset] = False
+
+        return (
+            lambda ex_number, i, j: is_square[ex_number]
+            and i + j == heights[ex_number] - 1
+        )
+
     def _calculate_results(
         self,
         foil: FOIL,
         test_inputs_shapes: List[List[Shape]],
         shape_colour_predicates: list[Predicate],
         shape_colour_count_predicates: list[Predicate],
+        grid_colour_count_predicates: list[Predicate],
         possible_colours: list[Colour],
     ) -> List[NDArray[np.int16]]:
         # We offset test numbers by 100 to avoid conflicts with the examples
-        test_number_offset = 100  # we
+        test_number_offset = 100
 
         for test_number, test_grid in enumerate(self.test_inputs):
             offset_test_number = test_number + test_number_offset
@@ -481,6 +581,14 @@ class Solver:
                             (offset_test_number, Colour(value), i, j)
                         )
 
+        # bk for grids
+        self._append_background_knowledge_for_grids(
+            self.test_inputs,
+            grid_colour_count_predicates,
+            foil.background_knowledge,
+            test_number_offset=test_number_offset,
+        )
+
         # bk relating shapes
         # We assume here input and output grid are the same size
         for test_number, (input_shapes, input_grid) in enumerate(
@@ -495,12 +603,8 @@ class Solver:
                         )
                         self._append_background_knowledge_for_shapes(
                             foil.background_knowledge,
-                            Shape(
-                                None,
-                                (i, j),
-                                np.array([[1]]),
-                                shape_type=ShapeType.PIXEL,
-                            ),
+                            i,
+                            j,
                             input_shape,
                             offset_test_number,
                             input_shape_name,
@@ -530,170 +634,255 @@ class Solver:
 
         return test_outputs
 
+    def _append_background_knowledge_for_grids(
+        self,
+        inputs,
+        grid_colour_count_predicates: list[Predicate],
+        background_knowledge: dict[str, set[tuple]],
+        test_number_offset=0,
+    ):
+        for ex, input_grid in enumerate(inputs):
+            unique_colour_count = self._get_grid_colour_count(input_grid)
+            for grid_colour_count_pred in grid_colour_count_predicates:
+                # Do this better
+                if (
+                    f"grid-colour-count-{unique_colour_count}"
+                    == grid_colour_count_pred.name
+                    and grid_colour_count_pred.name in background_knowledge
+                ):
+                    background_knowledge[grid_colour_count_pred.name].add(
+                        (ex + test_number_offset,)
+                    )
+
     def _append_background_knowledge_for_shapes(
         self,
         background_knowledge: dict[str, set[tuple]],
-        output_shape: Shape,
+        output_i: int,
+        output_j: int,
         input_shape: Shape,
         ex_number: int,
         input_shape_name: str,
         shape_colour_predicates: list[Predicate],
         shape_colour_count_predicates: list[Predicate],
     ) -> None:
-        if output_shape.is_above(input_shape):
+        if (
+            input_shape.is_above_i(output_i)
+            and self._ABOVE_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._ABOVE_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_below(input_shape):
+        if (
+            input_shape.is_below_i(output_i)
+            and self._BELOW_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._BELOW_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_left_of(input_shape):
+        if (
+            input_shape.is_left_of_j(output_j)
+            and self._LEFT_OF_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._LEFT_OF_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_right_of(input_shape):
+        if (
+            input_shape.is_right_of_j(output_j)
+            and self._RIGHT_OF_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._RIGHT_OF_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_horizontally_above_right(input_shape):
+        if (
+            input_shape.is_inline_horizontally_above_right_ij(output_i, output_j)
+            and self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_horizontally_above_left(input_shape):
+        if (
+            input_shape.is_inline_horizontally_above_left_ij(output_i, output_j)
+            and self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_horizontally_below_right(input_shape):
+        if (
+            input_shape.is_inline_horizontally_below_right_ij(output_i, output_j)
+            and self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_horizontally_below_left(input_shape):
+        if (
+            input_shape.is_inline_horizontally_below_left_ij(output_i, output_j)
+            and self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_above_vertically(input_shape):
+        if (
+            input_shape.is_inline_above_vertically_ij(output_i, output_j)
+            and self._INLINE_ABOVE_VERTICALLY_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_ABOVE_VERTICALLY_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_below_vertically(input_shape):
+        if (
+            input_shape.is_inline_below_vertically_ij(output_i, output_j)
+            and self._INLINE_BELOW_VERTICALLY_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_BELOW_VERTICALLY_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_left_horizontally(input_shape):
+        if (
+            input_shape.is_inline_left_horizontally_ij(output_i, output_j)
+            and self._INLINE_LEFT_HORIZONTALLY_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_LEFT_HORIZONTALLY_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inline_right_horizontally(input_shape):
+        if (
+            input_shape.is_inline_right_horizontally_ij(output_i, output_j)
+            and self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inside(input_shape):
+        if (
+            input_shape.is_ij_inside(output_i, output_j)
+            and self._INSIDE_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INSIDE_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_mask_overlapping(input_shape):
+        if (
+            input_shape.is_mask_overlapping_ij(output_i, output_j)
+            and self._MASK_OVERLAPPING_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._MASK_OVERLAPPING_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
             )
 
-        if output_shape.is_inside_not_overlapping(input_shape):
+        if (
+            input_shape.is_ij_inside_not_overlapping(output_i, output_j)
+            and self._INSIDE_NOT_OVERLAPPING_PRED_NAME in background_knowledge
+        ):
             background_knowledge[self._INSIDE_NOT_OVERLAPPING_PRED_NAME].add(
                 (
                     ex_number,
-                    output_shape.position[0],
-                    output_shape.position[1],
+                    output_i,
+                    output_j,
                     input_shape_name,
                 )
+            )
+
+        if (
+            input_shape.shape_type == ShapeType.MIXED_COLOUR
+            and self._MIXED_COLOUR_SHAPE_PRED_NAME in background_knowledge
+        ):
+            background_knowledge[self._MIXED_COLOUR_SHAPE_PRED_NAME].add(
+                (input_shape_name,)
+            )
+
+        if (
+            input_shape.shape_type == ShapeType.SINGLE_COLOUR
+            and self._SINGLE_COLOUR_SHAPE_PRED_NAME in background_knowledge
+        ):
+            background_knowledge[self._SINGLE_COLOUR_SHAPE_PRED_NAME].add(
+                (input_shape_name,)
             )
 
         if input_shape.colour is not None:
             for colour_pred in shape_colour_predicates:
                 # Do this better
-                if f"shape-colour-{input_shape.colour.name}" == colour_pred.name:
+                if (
+                    f"shape-colour-{input_shape.colour.name}" == colour_pred.name
+                    and colour_pred.name in background_knowledge
+                ):
                     background_knowledge[colour_pred.name].add((input_shape_name,))
 
         for shape_colour_pred in shape_colour_count_predicates:
@@ -701,10 +890,9 @@ class Solver:
             if (
                 f"shape-colour-count-{input_shape.colour_count}"
                 == shape_colour_pred.name
+                and shape_colour_pred.name in background_knowledge
             ):
-                background_knowledge[shape_colour_pred.name].add(
-                    (input_shape_name, input_shape.colour_count)
-                )
+                background_knowledge[shape_colour_pred.name].add((input_shape_name,))
 
     @staticmethod
     def _generate_shape_name(example_number: int, is_input: bool, index: int) -> str:
