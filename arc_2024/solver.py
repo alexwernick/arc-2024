@@ -1,4 +1,4 @@
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,7 +13,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 from arc_2024.inductive_logic_programming.FOIL import FOIL
 from arc_2024.representations.colour import Colour
 from arc_2024.representations.interpreter import Interpreter
-from arc_2024.representations.shape import Shape
+from arc_2024.representations.shape import Shape, ShapeType
 
 
 class Solver:
@@ -86,6 +86,7 @@ class Solver:
                 inputs_shapes, outputs_shapes
             ),
         )  # noqa: E501
+        # colour_count_arg = ArgType("colour_count", possible_colour_counts)
 
         target_predicate = Predicate(
             "output", 4, [example_number_arg, colour_type_arg, i_arg, j_arg]
@@ -178,9 +179,7 @@ class Solver:
 
         for colour in possible_colours:
             shape_colour_predicates.append(
-                Predicate(
-                    f"shape-colour-{colour.name}", 2, [shape_arg, colour_type_arg]
-                )
+                Predicate(f"shape-colour-{colour.name}", 1, [shape_arg])
             )
 
             colour_predicates.append(
@@ -188,8 +187,67 @@ class Solver:
                     f"colour-{colour.name}",
                     1,
                     [colour_type_arg],
-                    lambda colour_to_check: colour_to_check == colour,
+                    self._get_colour_eval_func(colour),
                 )
+            )
+
+        # Once we know the grid size of the outputs we need to get the biggest here
+        max_is: set[int] = set()
+        max_js: set[int] = set()
+        for input in self.inputs:
+            max_is.add(input.shape[0])
+            max_js.add(input.shape[1])
+
+        max_i = max(max_is)
+        max_j = max(max_js)
+
+        inequality_predicates: list[Predicate] = []
+        for i in range(max_i):
+            if i != max_i:
+                inequality_predicates.append(
+                    RuleBasedPredicate(
+                        f"i-greater-than-{i}",
+                        1,
+                        [i_arg],
+                        self._get_more_than_eval_func(i),
+                    )
+                )
+
+            if i != 0:
+                inequality_predicates.append(
+                    RuleBasedPredicate(
+                        f"i-less-than-{i}",
+                        1,
+                        [i_arg],
+                        self._get_less_than_eval_func(i),
+                    )
+                )
+
+        for j in range(max_j):
+            if i != max_j:
+                inequality_predicates.append(
+                    RuleBasedPredicate(
+                        f"j-greater-than-{j}",
+                        1,
+                        [j_arg],
+                        self._get_more_than_eval_func(j),
+                    )
+                )
+
+            if j != 0:
+                inequality_predicates.append(
+                    RuleBasedPredicate(
+                        f"j-less-than-{j}",
+                        1,
+                        [j_arg],
+                        self._get_less_than_eval_func(j),
+                    )
+                )
+
+        shape_colour_count_predicates: list[Predicate] = []
+        for possible_count in self._extract_all_possible_colour_counts(inputs_shapes):
+            shape_colour_count_predicates.append(
+                Predicate(f"shape-colour-count-{possible_count}", 1, [shape_arg])
             )
 
         predicates = [
@@ -214,6 +272,8 @@ class Solver:
 
         predicates.extend(shape_colour_predicates)
         predicates.extend(colour_predicates)
+        predicates.extend(shape_colour_count_predicates)
+        predicates.extend(inequality_predicates)
 
         # Examples
         examples: list[tuple[bool, dict[str, Any]]] = []
@@ -253,26 +313,35 @@ class Solver:
             background_knowledge[predicate.name] = set()
 
         # bk relating input and output shapes
-        for ex_number, (input_shapes, output_shapes) in enumerate(
-            zip(inputs_shapes, outputs_shapes)
+        # bk relating shapes
+        # We assume here input and output grid are the same size
+        for ex_number, (input_shapes, output_grid) in enumerate(
+            zip(inputs_shapes, self.outputs)
         ):
-            for input_shape_index, input_shape in enumerate(input_shapes):
-                for output_shape in output_shapes:
-                    # only consider pixel output shapes
-                    if output_shape.height != 1 or output_shape.width != 1:
-                        continue
+            for i in range(output_grid.shape[0]):
+                for j in range(output_grid.shape[1]):
+                    for input_shape_index, input_shape in enumerate(input_shapes):
+                        input_shape_name = self._generate_shape_name(
+                            ex_number, True, input_shape_index
+                        )
+                        shape_colour: Optional[Colour] = None
+                        if output_grid[i, j] != 0:
+                            shape_colour = Colour(output_grid[i, j])
 
-                    input_shape_name = self._generate_shape_name(
-                        ex_number, True, input_shape_index
-                    )
-                    self._append_background_knowledge_for_shapes(
-                        background_knowledge,
-                        output_shape,
-                        input_shape,
-                        ex_number,
-                        input_shape_name,
-                        shape_colour_predicates,
-                    )
+                        self._append_background_knowledge_for_shapes(
+                            background_knowledge,
+                            Shape(
+                                shape_colour,
+                                (i, j),
+                                np.array([[1]]),
+                                shape_type=ShapeType.PIXEL,
+                            ),
+                            input_shape,
+                            ex_number,
+                            input_shape_name,
+                            shape_colour_predicates,
+                            shape_colour_count_predicates,
+                        )
 
         # Raw input bk
         for ex_number, example_grid in enumerate(self.inputs):
@@ -290,7 +359,11 @@ class Solver:
         foil.fit(examples)
 
         return self._calculate_results(
-            foil, test_inputs_shapes, shape_colour_predicates, possible_colours
+            foil,
+            test_inputs_shapes,
+            shape_colour_predicates,
+            shape_colour_count_predicates,
+            possible_colours,
         )
 
     @staticmethod
@@ -309,6 +382,17 @@ class Solver:
                     possible_colours.add(output_shape.colour)
 
         return list(possible_colours)
+
+    @staticmethod
+    def _extract_all_possible_colour_counts(
+        inputs_shapes: List[List[Shape]],
+    ) -> List[int]:
+        possible_counts: set[int] = set()
+        for input_shapes in inputs_shapes:
+            for input_shape in input_shapes:
+                possible_counts.add(input_shape.colour_count)
+
+        return list(possible_counts)
 
     # We make and assumption here that the input and output
     # grid shapes are the same size. We will need to learn
@@ -360,11 +444,24 @@ class Solver:
 
         return get_possible_shapes
 
+    @staticmethod
+    def _get_colour_eval_func(colour: Colour) -> Callable[..., bool]:
+        return lambda colour_to_check: colour_to_check == colour
+
+    @staticmethod
+    def _get_less_than_eval_func(value: int) -> Callable[..., bool]:
+        return lambda x: x < value
+
+    @staticmethod
+    def _get_more_than_eval_func(value: int) -> Callable[..., bool]:
+        return lambda x: x > value
+
     def _calculate_results(
         self,
         foil: FOIL,
         test_inputs_shapes: List[List[Shape]],
         shape_colour_predicates: list[Predicate],
+        shape_colour_count_predicates: list[Predicate],
         possible_colours: list[Colour],
     ) -> List[NDArray[np.int16]]:
         # We offset test numbers by 100 to avoid conflicts with the examples
@@ -398,11 +495,17 @@ class Solver:
                         )
                         self._append_background_knowledge_for_shapes(
                             foil.background_knowledge,
-                            Shape(None, (i, j), np.array([[1]]), False),
+                            Shape(
+                                None,
+                                (i, j),
+                                np.array([[1]]),
+                                shape_type=ShapeType.PIXEL,
+                            ),
                             input_shape,
                             offset_test_number,
                             input_shape_name,
                             shape_colour_predicates,
+                            shape_colour_count_predicates,
                         )
 
         # we iteratively populate the test outputs
@@ -435,6 +538,7 @@ class Solver:
         ex_number: int,
         input_shape_name: str,
         shape_colour_predicates: list[Predicate],
+        shape_colour_count_predicates: list[Predicate],
     ) -> None:
         if output_shape.is_above(input_shape):
             background_knowledge[self._ABOVE_PRED_NAME].add(
@@ -586,10 +690,21 @@ class Solver:
                 )
             )
 
-        for colour_pred in shape_colour_predicates:
-            background_knowledge[colour_pred.name].add(
-                (input_shape_name, input_shape.colour)
-            )
+        if input_shape.colour is not None:
+            for colour_pred in shape_colour_predicates:
+                # Do this better
+                if f"shape-colour-{input_shape.colour.name}" == colour_pred.name:
+                    background_knowledge[colour_pred.name].add((input_shape_name,))
+
+        for shape_colour_pred in shape_colour_count_predicates:
+            # Do this better
+            if (
+                f"shape-colour-count-{input_shape.colour_count}"
+                == shape_colour_pred.name
+            ):
+                background_knowledge[shape_colour_pred.name].add(
+                    (input_shape_name, input_shape.colour_count)
+                )
 
     @staticmethod
     def _generate_shape_name(example_number: int, is_input: bool, index: int) -> str:

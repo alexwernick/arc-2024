@@ -24,7 +24,8 @@ def main():
     # Split the tasks into individual files
     # data_manager.split_tasks_to_individual_files(TEST_FILE_NAME)
 
-    inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data("6d75e8bb")
+    task_id = "6e02f1e3"  # 6e02f1e3 6d75e8bb
+    inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data(task_id)
 
     solver = Solver(inputs, outputs, test_inputs)
 
@@ -33,9 +34,9 @@ def main():
     for result, test_output in zip(results, test_outputs):
         correct_solution = np.array_equal(result, test_output)
         if correct_solution:
-            print("Task 6d75e8bb was solved correctly")
+            print(f"Task {task_id} was solved correctly")
         else:
-            print("Task 6d75e8bb was solved incorrectly")
+            print(f"Task {task_id} was solved incorrectly")
 
     # for unsolved_task in data_manager.get_unsolved_tasks():
     #     with open(

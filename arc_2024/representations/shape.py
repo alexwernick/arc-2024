@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Callable, Optional, Tuple
 
 import numpy as np
@@ -6,6 +7,12 @@ from numpy.typing import NDArray
 from arc_2024.representations.colour import Colour
 
 RelationshipType = Callable[["Shape"], bool]
+
+
+class ShapeType(Enum):
+    PIXEL = 1
+    SINGLE_COLOUR = 2
+    MIXED_COLOUR = 3
 
 
 class Shape:
@@ -17,21 +24,33 @@ class Shape:
     num_of_coloured_pixels: int
     centre: Tuple[float, float]
     relationships: dict[str, RelationshipType]
-    is_top_level: bool
+    shape_type: ShapeType
+    colours: set[Colour]
+    colour_count: int
 
     def __init__(
         self,
         colour: Optional[Colour],
         position: Tuple[int, int],
         mask: NDArray[np.int16],
-        is_top_level: bool = False,  # only doing to satisfy test setups. Need to remove
+        shape_type: ShapeType,  # only doing to satisfy test setups. Need to remove
+        colours: Optional[set[Colour]] = None,
     ):
         if mask.ndim != 2:
             raise ValueError("Array must be 2D")
 
+        if shape_type != ShapeType.MIXED_COLOUR:
+            if colour is None:
+                raise ValueError("Colour must be provided for single colour shapes")
+            colours = {colour}
+
+        if colours is None and shape_type == ShapeType.MIXED_COLOUR:
+            raise ValueError("colours must be provided for mixed colour shapes")
+
         height, width = mask.shape
 
         self.colour = colour
+
         self.width = width
         self.height = height
         self.position = position
@@ -41,7 +60,14 @@ class Shape:
         self.left_most = self.position[1]
         self.bottom_most = self.position[0] + self.height - 1
         self.top_most = self.position[0]
-        self.is_top_level = is_top_level
+        self.shape_type = shape_type
+
+        if colours is None:
+            # code should never reach here due to above validation
+            raise ValueError("colours can not be None")
+
+        self.colours = colours
+        self.colour_count = len(colours)
 
         # The below calculation ensures that for a 2*2 grid with position (0,0)
         # the center would be (0.5, 0.5). For a 3*3 grid with position (0,0)
@@ -74,7 +100,15 @@ class Shape:
             array_equal = np.array_equal(self.mask, other.mask)
             colour_equal = self.colour == other.colour
             position_equal = self.position == other.position
-            return array_equal and colour_equal and position_equal
+            type_equal = self.shape_type == other.shape_type
+            colours_equal = self.colours == other.colours
+            return (
+                array_equal
+                and colour_equal
+                and position_equal
+                and type_equal
+                and colours_equal
+            )
         return False
 
     def __repr__(self):

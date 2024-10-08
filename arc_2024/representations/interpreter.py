@@ -1,10 +1,10 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
-from arc_2024.representations.shape import Shape
+from arc_2024.representations.shape import Shape, ShapeType
 
 
 class Interpreter:
@@ -100,11 +100,19 @@ class Interpreter:
         grid: NDArray[np.int16],
         searched_space: set,
         shape_frontier: set,
-    ) -> Shape:
+        shape_type: ShapeType,
+    ) -> Optional[Shape]:
         if grid.ndim != 2:
             raise ValueError("grid Array must be 2D")
 
+        if not (
+            shape_type == ShapeType.MIXED_COLOUR
+            or shape_type == ShapeType.SINGLE_COLOUR
+        ):
+            raise ValueError(f"Shape type not supported: {shape_type}")
+
         current_colour = Colour(grid[starting_j, starting_k])
+        colours: set[Colour] = {current_colour}
         # we make a mask the size of the
         # whole grid and then chop it down later
         mask = np.zeros((grid.shape[0], grid.shape[1]), dtype=np.int16)
@@ -125,9 +133,12 @@ class Interpreter:
                 continue
 
             if Colour(grid[explore_j, explore_k]) != current_colour:
-                # we don't add different colours to the seached space
-                # as they need to be evaluated in another loop
-                continue
+                if shape_type == ShapeType.SINGLE_COLOUR:
+                    continue
+                elif shape_type == ShapeType.MIXED_COLOUR:
+                    colours.add(Colour(grid[explore_j, explore_k]))
+                else:
+                    raise ValueError(f"Shape type not supported: {shape_type}")
 
             shape_frontier = shape_frontier.union(
                 Interpreter._surrounding_coordinates(
@@ -143,7 +154,14 @@ class Interpreter:
 
         position = Interpreter._find_smallest_indices_with_q(mask, 1)
         mask = Interpreter._remove_zero_rows_and_cols(mask)
-        return Shape(current_colour, position, mask, True)
+        if shape_type == ShapeType.SINGLE_COLOUR:
+            return Shape(current_colour, position, mask, shape_type)
+        elif shape_type == ShapeType.MIXED_COLOUR:
+            if len(colours) == 1:
+                return None
+            return Shape(None, position, mask, shape_type, colours)
+        else:
+            raise ValueError(f"Shape type not supported: {shape_type}")
 
     @staticmethod
     def _interpret_individual_pixels(grid: NDArray[np.int16]) -> List[Shape]:
@@ -156,12 +174,16 @@ class Interpreter:
                 # isn't blank
                 if grid[j, k] != 0:
                     colour = Colour(grid[j, k])
-                    pixels.append(Shape(colour, (j, k), np.array([[1]]), False))
+                    pixels.append(
+                        Shape(colour, (j, k), np.array([[1]]), ShapeType.PIXEL)
+                    )
 
         return pixels
 
     @staticmethod
-    def _interpret_shapes_from_grid(grid: NDArray[np.int16]) -> List[Shape]:
+    def _interpret_shapes_from_grid(
+        grid: NDArray[np.int16], shape_type: ShapeType
+    ) -> List[Shape]:
         searched_space: set = set()
         shape_frontier: set = set()
         shapes: List[Shape] = []
@@ -176,12 +198,10 @@ class Interpreter:
                     continue
 
                 discovered_shape = Interpreter._find_shape_by_search(
-                    j, k, grid, searched_space, shape_frontier
+                    j, k, grid, searched_space, shape_frontier, shape_type
                 )
-
-                # we don't add single squares as they are already added as pixels
-                # if discovered_shape.num_of_coloured_pixels > 1:
-                shapes.append(discovered_shape)
+                if discovered_shape is not None:
+                    shapes.append(discovered_shape)
         return shapes
 
     @staticmethod
@@ -200,8 +220,12 @@ class Interpreter:
             # then add all the blocks of the same colour
             # note might need to consider shapes that don't join diagonally
             # right now a diagonal touch is conidered joining
-            shapes[i].extend(Interpreter._interpret_shapes_from_grid(grid))
+            shapes[i].extend(
+                Interpreter._interpret_shapes_from_grid(grid, ShapeType.SINGLE_COLOUR)
+            )
             # then add all the blocks of solid colour, not necessarily the same colour
-            # shapes[i].extend(Interpreter._interpret_shapes_of_any_colour(grids[i]))
+            shapes[i].extend(
+                Interpreter._interpret_shapes_from_grid(grid, ShapeType.MIXED_COLOUR)
+            )
 
         return shapes
