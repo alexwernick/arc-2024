@@ -112,71 +112,71 @@ class Solver:
         empty_pred = Predicate(
             self._EMPTY_PRED_NAME, 3, [example_number_arg, i_arg, j_arg]
         )
-        # above_pred = Predicate(
-        #     self._ABOVE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        # )
-        # below_pred = Predicate(
-        #     self._BELOW_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        # )
-        # left_of_pred = Predicate(
-        #     self._LEFT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        # )
-        # right_of_pred = Predicate(
-        #     self._RIGHT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        # )
-        # inline_horizontally_above_right_pred = Predicate(
-        #     self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_horizontally_above_left_pred = Predicate(
-        #     self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_horizontally_below_right_pred = Predicate(
-        #     self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_horizontally_below_left_pred = Predicate(
-        #     self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_above_vertically_pred = Predicate(
-        #     self._INLINE_ABOVE_VERTICALLY_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_below_vertically_pred = Predicate(
-        #     self._INLINE_BELOW_VERTICALLY_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_left_horizontally_pred = Predicate(
-        #     self._INLINE_LEFT_HORIZONTALLY_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inline_right_horizontally_pred = Predicate(
-        #     self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # mask_overlapping_pred = Predicate(
-        #     self._MASK_OVERLAPPING_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )  # noqa: E501
-        # inside_prod = Predicate(
-        #     self._INSIDE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
-        # )
-        # inside_not_overlapping_pred = Predicate(
-        #     self._INSIDE_NOT_OVERLAPPING_PRED_NAME,
-        #     4,
-        #     [example_number_arg, i_arg, j_arg, shape_arg],
-        # )
+        above_pred = Predicate(
+            self._ABOVE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        )
+        below_pred = Predicate(
+            self._BELOW_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        )
+        left_of_pred = Predicate(
+            self._LEFT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        )
+        right_of_pred = Predicate(
+            self._RIGHT_OF_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        )
+        inline_horizontally_above_right_pred = Predicate(
+            self._INLINE_HORIZONTALLY_ABOVE_RIGHT_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_horizontally_above_left_pred = Predicate(
+            self._INLINE_HORIZONTALLY_ABOVE_LEFT_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_horizontally_below_right_pred = Predicate(
+            self._INLINE_HORIZONTALLY_BELOW_RIGHT_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_horizontally_below_left_pred = Predicate(
+            self._INLINE_HORIZONTALLY_BELOW_LEFT_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_above_vertically_pred = Predicate(
+            self._INLINE_ABOVE_VERTICALLY_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_below_vertically_pred = Predicate(
+            self._INLINE_BELOW_VERTICALLY_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_left_horizontally_pred = Predicate(
+            self._INLINE_LEFT_HORIZONTALLY_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_right_horizontally_pred = Predicate(
+            self._INLINE_RIGHT_HORIZONTALLY_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        mask_overlapping_pred = Predicate(
+            self._MASK_OVERLAPPING_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inside_pred = Predicate(
+            self._INSIDE_PRED_NAME, 4, [example_number_arg, i_arg, j_arg, shape_arg]
+        )
+        inside_not_overlapping_pred = Predicate(
+            self._INSIDE_NOT_OVERLAPPING_PRED_NAME,
+            4,
+            [example_number_arg, i_arg, j_arg, shape_arg],
+        )
         top_left_bottom_right_diag_pred = RuleBasedPredicate(
             self._TOP_LEFT_BOTTOM_RIGHT_DIAG_PRED_NAME,
             3,
@@ -201,7 +201,9 @@ class Solver:
 
         for colour in possible_colours:
             shape_colour_predicates.append(
-                Predicate(f"shape-colour-{colour.name}", 1, [shape_arg])
+                Predicate(
+                    f"shape-colour-{colour.name}", 2, [example_number_arg, shape_arg]
+                )
             )
 
             colour_predicates.append(
@@ -211,6 +213,12 @@ class Solver:
                     [colour_type_arg],
                     self._get_colour_eval_func(colour),
                 )
+            )
+
+        shape_size_predicates: list[Predicate] = []
+        for size in self._extract_all_possible_sizes_for_shapes(inputs_shapes):
+            shape_size_predicates.append(
+                Predicate(f"shape-size-{size}", 2, [example_number_arg, shape_arg])
             )
 
         # Once we know the grid size of the outputs we need to get the biggest here
@@ -285,21 +293,21 @@ class Solver:
         predicates = [
             input_pred,
             empty_pred,
-            # inside_prod,
-            # above_pred,
-            # below_pred,
-            # left_of_pred,
-            # right_of_pred,
-            # inline_horizontally_above_right_pred,
-            # inline_horizontally_above_left_pred,
-            # inline_horizontally_below_right_pred,
-            # inline_horizontally_below_left_pred,
-            # inline_above_vertically_pred,
-            # inline_below_vertically_pred,
-            # inline_left_horizontally_pred,
-            # inline_right_horizontally_pred,
-            # mask_overlapping_pred,
-            # inside_not_overlapping_pred,
+            inside_pred,
+            above_pred,
+            below_pred,
+            left_of_pred,
+            right_of_pred,
+            inline_horizontally_above_right_pred,
+            inline_horizontally_above_left_pred,
+            inline_horizontally_below_right_pred,
+            inline_horizontally_below_left_pred,
+            inline_above_vertically_pred,
+            inline_below_vertically_pred,
+            inline_left_horizontally_pred,
+            inline_right_horizontally_pred,
+            mask_overlapping_pred,
+            inside_not_overlapping_pred,
             bottom_left_top_right_diag_pred,
             top_left_bottom_right_diag_pred,
             # I don't think these have any vlaue as we have
@@ -313,6 +321,7 @@ class Solver:
         predicates.extend(shape_colour_count_predicates)
         predicates.extend(grid_colour_count_predicates)
         predicates.extend(inequality_predicates)
+        predicates.extend(shape_size_predicates)
 
         # Examples
         examples: list[tuple[bool, dict[str, Any]]] = []
@@ -382,6 +391,7 @@ class Solver:
                             input_shape_name,
                             shape_colour_predicates,
                             shape_colour_count_predicates,
+                            shape_size_predicates,
                         )
 
         # Raw input bk
@@ -392,9 +402,10 @@ class Solver:
                     if value == 0:
                         background_knowledge[empty_pred.name].add((ex_number, i, j))
                     else:
-                        background_knowledge[input_pred.name].add(
-                            (ex_number, Colour(value), i, j)
-                        )
+                        if input_pred.name in background_knowledge:
+                            background_knowledge[input_pred.name].add(
+                                (ex_number, Colour(value), i, j)
+                            )
 
         foil = FOIL(target_literal, predicates, background_knowledge)
         foil.fit(examples)
@@ -405,6 +416,7 @@ class Solver:
             shape_colour_predicates,
             shape_colour_count_predicates,
             grid_colour_count_predicates,
+            shape_size_predicates,
             possible_colours,
         )
 
@@ -435,6 +447,17 @@ class Solver:
                 possible_counts.add(input_shape.colour_count)
 
         return list(possible_counts)
+
+    @staticmethod
+    def _extract_all_possible_sizes_for_shapes(
+        inputs_shapes: List[List[Shape]],
+    ) -> List[int]:
+        possible_sizes: set[int] = set()
+        for input_shapes in inputs_shapes:
+            for input_shape in input_shapes:
+                possible_sizes.add(input_shape.num_of_coloured_pixels)
+
+        return list(possible_sizes)
 
     def _extract_all_possible_colour_counts_for_grids(self) -> List[int]:
         possible_counts: set[int] = set()
@@ -562,6 +585,7 @@ class Solver:
         shape_colour_predicates: list[Predicate],
         shape_colour_count_predicates: list[Predicate],
         grid_colour_count_predicates: list[Predicate],
+        shape_size_predicates: list[Predicate],
         possible_colours: list[Colour],
     ) -> List[NDArray[np.int16]]:
         # We offset test numbers by 100 to avoid conflicts with the examples
@@ -577,9 +601,10 @@ class Solver:
                             (offset_test_number, i, j)
                         )
                     else:
-                        foil.background_knowledge[self._INPUT_PRED_NAME].add(
-                            (offset_test_number, Colour(value), i, j)
-                        )
+                        if self._INPUT_PRED_NAME in foil.background_knowledge:
+                            foil.background_knowledge[self._INPUT_PRED_NAME].add(
+                                (offset_test_number, Colour(value), i, j)
+                            )
 
         # bk for grids
         self._append_background_knowledge_for_grids(
@@ -610,6 +635,7 @@ class Solver:
                             input_shape_name,
                             shape_colour_predicates,
                             shape_colour_count_predicates,
+                            shape_size_predicates,
                         )
 
         # we iteratively populate the test outputs
@@ -664,6 +690,7 @@ class Solver:
         input_shape_name: str,
         shape_colour_predicates: list[Predicate],
         shape_colour_count_predicates: list[Predicate],
+        shape_size_predicates: list[Predicate],
     ) -> None:
         if (
             input_shape.is_above_i(output_i)
@@ -892,7 +919,20 @@ class Solver:
                 == shape_colour_pred.name
                 and shape_colour_pred.name in background_knowledge
             ):
-                background_knowledge[shape_colour_pred.name].add((input_shape_name,))
+                background_knowledge[shape_colour_pred.name].add(
+                    (ex_number, input_shape_name)
+                )
+
+        for shape_size_pred in shape_size_predicates:
+            # Do this better
+            if (
+                f"shape-size-{input_shape.num_of_coloured_pixels}"
+                == shape_size_pred.name
+                and shape_size_pred.name in background_knowledge
+            ):
+                background_knowledge[shape_size_pred.name].add(
+                    (ex_number, input_shape_name)
+                )
 
     @staticmethod
     def _generate_shape_name(example_number: int, is_input: bool, index: int) -> str:
