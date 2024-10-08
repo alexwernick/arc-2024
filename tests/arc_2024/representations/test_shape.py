@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from arc_2024.representations.colour import Colour
 from arc_2024.representations.shape import Shape, ShapeType
 
 
@@ -9,13 +10,13 @@ from arc_2024.representations.shape import Shape, ShapeType
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -24,13 +25,13 @@ from arc_2024.representations.shape import Shape, ShapeType
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -39,43 +40,13 @@ from arc_2024.representations.shape import Shape, ShapeType
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
-                (1, 0),
-                np.array([[0]], dtype=np.int16),
-                shape_type=ShapeType.SINGLE_COLOUR,
-            ),
-            True,
-        ),
-        (
-            Shape(
-                None,
-                (0, 0),
-                np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
-                shape_type=ShapeType.SINGLE_COLOUR,
-            ),
-            Shape(
-                None,
-                (0, 0),
-                np.array([[0]], dtype=np.int16),
-                shape_type=ShapeType.SINGLE_COLOUR,
-            ),
-            False,
-        ),
-        (
-            Shape(
-                None,
-                (0, 0),
-                np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
-                shape_type=ShapeType.SINGLE_COLOUR,
-            ),
-            Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -84,13 +55,43 @@ from arc_2024.representations.shape import Shape, ShapeType
         ),
         (
             Shape(
-                None,
+                Colour(1),
+                (0, 0),
+                np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
+                shape_type=ShapeType.SINGLE_COLOUR,
+            ),
+            Shape(
+                Colour(1),
+                (0, 0),
+                np.array([[0]], dtype=np.int16),
+                shape_type=ShapeType.SINGLE_COLOUR,
+            ),
+            False,
+        ),
+        (
+            Shape(
+                Colour(1),
+                (0, 0),
+                np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
+                shape_type=ShapeType.SINGLE_COLOUR,
+            ),
+            Shape(
+                Colour(1),
+                (1, 0),
+                np.array([[0]], dtype=np.int16),
+                shape_type=ShapeType.SINGLE_COLOUR,
+            ),
+            True,
+        ),
+        (
+            Shape(
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -99,13 +100,13 @@ from arc_2024.representations.shape import Shape, ShapeType
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -114,13 +115,13 @@ from arc_2024.representations.shape import Shape, ShapeType
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -142,13 +143,13 @@ def test_is_above(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -157,13 +158,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -172,13 +173,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -187,13 +188,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -202,13 +203,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -217,13 +218,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -232,13 +233,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -247,13 +248,13 @@ def test_is_above(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -275,13 +276,13 @@ def test_is_below(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -290,13 +291,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -305,13 +306,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -320,13 +321,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0], [0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -335,13 +336,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0], [0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -350,13 +351,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -365,13 +366,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -380,13 +381,13 @@ def test_is_below(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -408,13 +409,13 @@ def test_is_left_of(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -423,13 +424,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -438,13 +439,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -453,13 +454,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0], [0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -468,13 +469,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0], [0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -483,13 +484,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -498,13 +499,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -513,13 +514,13 @@ def test_is_left_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -541,13 +542,13 @@ def test_is_right_of(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 3),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -556,13 +557,13 @@ def test_is_right_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 3),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -571,13 +572,13 @@ def test_is_right_of(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -599,13 +600,13 @@ def test_is_inline_horizontally_above_right(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (1, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -614,13 +615,13 @@ def test_is_inline_horizontally_above_right(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -629,13 +630,13 @@ def test_is_inline_horizontally_above_right(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -657,13 +658,13 @@ def test_is_inline_horizontally_above_left(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (3, 3),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -672,13 +673,13 @@ def test_is_inline_horizontally_above_left(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (3, 3),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -687,13 +688,13 @@ def test_is_inline_horizontally_above_left(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (3, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -715,13 +716,13 @@ def test_is_inline_horizontally_below_right(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (3, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -730,13 +731,13 @@ def test_is_inline_horizontally_below_right(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (3, 1),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -745,13 +746,13 @@ def test_is_inline_horizontally_below_right(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (3, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 2),
                 np.array([[0]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -773,13 +774,13 @@ def test_is_inline_horizontally_below_left(shape1, shape2, expected_result):
     [
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 1),
                 np.array([[1, 1], [0, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -788,13 +789,13 @@ def test_is_inline_horizontally_below_left(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (1, 1),
                 np.array([[1, 1], [0, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -803,13 +804,13 @@ def test_is_inline_horizontally_below_left(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[1, 1], [0, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -818,13 +819,13 @@ def test_is_inline_horizontally_below_left(shape1, shape2, expected_result):
         ),
         (
             Shape(
-                None,
+                Colour(1),
                 (0, 0),
                 np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
             ),
             Shape(
-                None,
+                Colour(1),
                 (2, 0),
                 np.array([[1, 1], [0, 1]], dtype=np.int16),
                 shape_type=ShapeType.SINGLE_COLOUR,
@@ -844,7 +845,7 @@ def test_is_mask_overlapping(shape1, shape2, expected_result):
 def test_all_pixels():
     # Setup code
     shape = Shape(
-        None,
+        Colour(1),
         (2, 3),
         np.array([[1, 0, 0], [1, 0, 0], [1, 1, 1]], dtype=np.int16),
         shape_type=ShapeType.SINGLE_COLOUR,
