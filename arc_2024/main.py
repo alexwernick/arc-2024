@@ -24,7 +24,7 @@ def main():
     # Split the tasks into individual files
     # data_manager.split_tasks_to_individual_files(TEST_FILE_NAME)
 
-    task_id = "6d75e8bb"  # 6e02f1e3 6d75e8bb 6e82a1ae
+    task_id = "6e82a1ae"  # 6e02f1e3 6d75e8bb 6e82a1ae
     inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data(task_id)
 
     solver = Solver(inputs, outputs, test_inputs)

@@ -18,6 +18,10 @@ from arc_2024.representations.shape import Shape, ShapeType
 
 
 class Solver:
+    inputs: list[NDArray[np.int16]]
+    outputs: list[NDArray[np.int16]]
+    test_inputs: list[NDArray[np.int16]]
+
     class ArgTypes(NamedTuple):
         colour_type_arg: ArgType
         example_number_arg: ArgType
@@ -71,10 +75,6 @@ class Solver:
 
     BackgroundKnowledgeType = DefaultDict[str, set[tuple]]
 
-    inputs: list[NDArray[np.int16]]
-    outputs: list[NDArray[np.int16]]
-    test_inputs: list[NDArray[np.int16]]
-
     # We offset test numbers by 100 to avoid conflicts with the examples
     _TEST_EX_NUMBER_OFFSET = 100
 
@@ -94,7 +94,7 @@ class Solver:
         self.outputs = outputs
         self.test_inputs = test_inputs
 
-    def solve(self) -> List[NDArray[np.int16]]:
+    def solve(self, beam_width: int = 1) -> List[NDArray[np.int16]]:
         """
         This function solves the task.
         """
@@ -125,7 +125,9 @@ class Solver:
             predicates, inputs_shapes, test_inputs_shapes
         )
 
-        foil = FOIL(target_literal, predicate_list, background_knowledge)
+        foil = FOIL(
+            target_literal, predicate_list, background_knowledge, beam_width=beam_width
+        )
         foil.fit(examples)
 
         return self._calculate_results(

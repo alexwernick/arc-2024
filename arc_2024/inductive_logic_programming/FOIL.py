@@ -1,7 +1,7 @@
 import copy
 import itertools
 import math
-from typing import Any, Optional
+from typing import Any, NamedTuple
 
 from arc_2024.inductive_logic_programming.first_order_logic import (
     Clause,
@@ -19,7 +19,21 @@ class FOIL:
     predicates: list[Predicate]
     background_knowledge: dict[str, set[tuple]]
     allow_recursion: bool
+    beam_width: int
     rules: list[Clause]
+
+    class BeamItem(NamedTuple):
+        clause: Clause
+        old_positive_examples: list[dict[str, Any]]
+        old_negative_examples: list[dict[str, Any]]
+        non_extended_pos_covered: list[dict[str, Any]]
+
+    class BestLiteral(NamedTuple):
+        gain: float
+        literal: Literal
+        pos_covered: list[dict[str, Any]]
+        neg_covered: list[dict[str, Any]]
+        non_extended_pos_covered: list[dict[str, Any]]
 
     def __init__(
         self,
@@ -27,6 +41,7 @@ class FOIL:
         predicates: list[Predicate],
         background_knowledge: dict[str, set[tuple]],
         allow_recursion: bool = False,
+        beam_width: int = 1,
     ):
         """
         Initialize the FOIL algorithm.
@@ -37,8 +52,9 @@ class FOIL:
         """
         self.target_literal = target_literal
         self.predicates = predicates
-        self.allow_recursion = allow_recursion
         self.background_knowledge = background_knowledge
+        self.allow_recursion = allow_recursion
+        self.beam_width = beam_width
         self.rules = []
 
     def fit(self, examples: list[tuple[bool, dict[str, Any]]]):
@@ -84,97 +100,168 @@ class FOIL:
         :param neg_examples: A list of negative examples.
         :return: A new Clause object.
         """
-        # Start with a clause with only the head (the target literal)
-        clause: Clause = Clause(self.target_literal)
 
         old_positive_examples = copy.deepcopy(uncovered_pos_examples)
         old_negative_examples = copy.deepcopy(neg_examples)
 
-        while old_negative_examples:  # while negative examples are covered
-            # Generate possible literals to add to the clause's body
-            candidate_literals: list[Literal] = self._new_literals(clause)
+        # Start with a beam with a clause with only the head (the target literal)
+        beam: list[FOIL.BeamItem] = [
+            FOIL.BeamItem(
+                clause=Clause(self.target_literal),
+                old_positive_examples=old_positive_examples,
+                old_negative_examples=old_negative_examples,
+                non_extended_pos_covered=old_positive_examples,
+            )
+        ]
 
-            best_literal: Optional[Literal] = None
-            best_gain: float = 0.0
+        while not self._beam_contains_item_with_no_negatives(
+            beam
+        ):  # while negative examples are covered
+            new_beam: list[FOIL.BeamItem] = []
 
-            # Evaluate each candidate literal
-            for literal in candidate_literals:
-                if literal in clause.body:
-                    continue  # Avoid cycles
-
-                if literal == clause.head:
-                    continue  # Avoid cycles
-
-                new_positive_examples: list[dict[str, Any]] = []
-                for example in old_positive_examples:
-                    new_positive_examples.extend(self._extend_example(example, literal))
-
-                new_non_extended_positive_examples = self._un_extend_examples(
-                    uncovered_pos_examples, new_positive_examples
+            for beam_item in beam:
+                best_literals = self._find_next_best_literals(
+                    beam_item.clause,
+                    uncovered_pos_examples,
+                    beam_item.old_positive_examples,
+                    beam_item.old_negative_examples,
                 )
 
-                new_non_extended_positive_examples_count = len(
-                    new_non_extended_positive_examples
+                for best_literal in best_literals:
+                    clause = copy.deepcopy(beam_item.clause)
+                    clause.add_literal(best_literal.literal)
+                    new_beam.append(
+                        FOIL.BeamItem(
+                            clause=clause,
+                            old_positive_examples=best_literal.pos_covered,
+                            old_negative_examples=best_literal.neg_covered,
+                            non_extended_pos_covered=best_literal.non_extended_pos_covered,  # noqa: E501
+                        )
+                    )
+
+            if len(new_beam) == 0:
+                raise Exception("Could not find a valid clause")
+
+            # sort literals info gain (descending)
+            new_beam = sorted(
+                new_beam,
+                key=lambda beam_item: self._information_gain(
+                    len(beam_item.non_extended_pos_covered),
+                    len(beam_item.old_positive_examples),
+                    len(beam_item.old_negative_examples),
+                    len(uncovered_pos_examples),
+                    len(neg_examples),
+                ),
+                reverse=True,
+            )
+
+            # take top beam_width items
+            beam = new_beam[: self.beam_width]
+
+        # We may have more than one beam with no negative examples
+        # so we take the one with the most positive examples
+        beam = [
+            beam_item for beam_item in beam if len(beam_item.old_negative_examples) == 0
+        ]
+        beam = sorted(
+            beam,
+            key=lambda beam_item: len(beam_item.old_positive_examples),
+            reverse=True,
+        )
+
+        return (beam[0].clause, beam[0].non_extended_pos_covered)
+
+    def _find_next_best_literals(
+        self,
+        clause: Clause,
+        uncovered_pos_examples: list[dict[str, Any]],
+        old_positive_examples: list[dict[str, Any]],
+        old_negative_examples: list[dict[str, Any]],
+    ) -> list[BestLiteral]:
+        candidate_literals: list[Literal] = self._new_literals(clause)
+        best_gain: float = 0.0
+        best_literals: list[FOIL.BestLiteral] = []
+
+        # Evaluate each candidate literal
+        for literal in candidate_literals:
+            if literal in clause.body:
+                continue  # Avoid cycles
+
+            if literal == clause.head:
+                continue  # Avoid cycles
+
+            new_positive_examples: list[dict[str, Any]] = []
+            for example in old_positive_examples:
+                new_positive_examples.extend(self._extend_example(example, literal))
+
+            new_non_extended_positive_examples = self._un_extend_examples(
+                uncovered_pos_examples, new_positive_examples
+            )
+
+            new_non_extended_positive_examples_count = len(
+                new_non_extended_positive_examples
+            )
+            new_positive_count = len(new_positive_examples)
+            new_negative_count = 0  # for now we assume best case is 0
+            old_positive_count = len(old_positive_examples)
+            old_negative_count = len(old_negative_examples)
+
+            if not new_positive_count:
+                continue  # Must cover some positive examples
+
+            # Now compute the maximum possible gain from substitutions
+            # so we can prune. Max gain is assuming that we will have no
+            # negative examples covered by the new literal
+            max_gain = self._information_gain(
+                new_non_extended_positive_examples_count,
+                new_positive_count,
+                0,
+                old_positive_count,
+                old_negative_count,
+            )
+
+            # If max_gain is less than best_gain, prune and
+            # avoid extending negative examples
+            if max_gain < best_gain:
+                continue
+
+            new_negative_examples: list[dict[str, Any]] = []
+            for example in old_negative_examples:
+                new_negative_examples.extend(self._extend_example(example, literal))
+
+            new_negative_count = len(new_negative_examples)
+
+            gain = self._information_gain(
+                new_non_extended_positive_examples_count,
+                new_positive_count,
+                new_negative_count,
+                old_positive_count,
+                old_negative_count,
+            )
+
+            if gain > best_gain:
+                # We append to our list of best literals
+                best_literals.append(
+                    FOIL.BestLiteral(
+                        gain=gain,
+                        literal=literal,
+                        pos_covered=new_positive_examples,
+                        neg_covered=new_negative_examples,
+                        non_extended_pos_covered=new_non_extended_positive_examples,
+                    )
                 )
-                new_positive_count = len(new_positive_examples)
-                new_negative_count = 0  # for now we assume best case is 0
-                old_positive_count = len(old_positive_examples)
-                old_negative_count = len(old_negative_examples)
 
-                if not new_positive_count:
-                    continue  # Must cover some positive examples
+                # no point having more best literals than beam width
+                if len(best_literals) > self.beam_width:
+                    # Sort the list (ascending order)
+                    best_literals = sorted(best_literals, key=lambda lit: lit.gain)
+                    # Remove the worst
+                    best_literals.pop(0)
+                    # we then set gain below to be the
+                    # worst value of the best literals (first item in list)
+                    best_gain = best_literals[0].gain
 
-                # Now compute the maximum possible gain from substitutions
-                # so we can prune. Max gain is assuming that we will have no
-                # negative examples covered by the new literal
-                max_gain = self._information_gain(
-                    new_non_extended_positive_examples_count,
-                    new_positive_count,
-                    0,
-                    old_positive_count,
-                    old_negative_count,
-                )
-
-                # If max_gain is less than best_gain, prune and
-                # avoid extending negative examples
-                if max_gain < best_gain:
-                    continue
-
-                new_negative_examples: list[dict[str, Any]] = []
-                for example in old_negative_examples:
-                    new_negative_examples.extend(self._extend_example(example, literal))
-
-                new_negative_count = len(new_negative_examples)
-
-                gain = self._information_gain(
-                    new_non_extended_positive_examples_count,
-                    new_positive_count,
-                    new_negative_count,
-                    old_positive_count,
-                    old_negative_count,
-                )
-
-                if gain > best_gain:
-                    best_gain = gain
-                    best_literal = literal
-                    best_pos_covered = new_positive_examples
-                    best_neg_covered = new_negative_examples
-                    best_non_extended_pos_covered = new_non_extended_positive_examples
-
-            if best_literal is None:
-                raise Exception(
-                    "Could not find a valid clause"
-                )  # No further improvement
-
-            clause.add_literal(best_literal)
-
-            old_positive_examples = best_pos_covered
-            old_negative_examples = best_neg_covered
-
-            best_literal = None
-            best_gain = 0
-
-        return (clause, best_non_extended_pos_covered)
+        return best_literals
 
     def _extend_example(
         self, example: dict[str, Any], literal_to_add: Literal
@@ -383,3 +470,11 @@ class FOIL:
                 non_extended_positive_examples.append(old_example)
 
         return non_extended_positive_examples
+
+    def _beam_contains_item_with_no_negatives(
+        self, beam: list["FOIL.BeamItem"]
+    ) -> bool:
+        for item in beam:
+            if not item.old_negative_examples:
+                return True
+        return False
