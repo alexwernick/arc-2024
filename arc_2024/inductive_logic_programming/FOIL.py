@@ -20,6 +20,7 @@ class FOIL:
     background_knowledge: dict[str, set[tuple]]
     allow_recursion: bool
     beam_width: int
+    max_clause_length: int
     rules: list[Clause]
 
     class BeamItem(NamedTuple):
@@ -42,6 +43,7 @@ class FOIL:
         background_knowledge: dict[str, set[tuple]],
         allow_recursion: bool = False,
         beam_width: int = 1,
+        max_clause_length: int = 7,
     ):
         """
         Initialize the FOIL algorithm.
@@ -55,6 +57,7 @@ class FOIL:
         self.background_knowledge = background_knowledge
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
+        self.max_clause_length = max_clause_length
         self.rules = []
 
     def fit(self, examples: list[tuple[bool, dict[str, Any]]]):
@@ -119,6 +122,13 @@ class FOIL:
         ):  # while negative examples are covered
             new_beam: list[FOIL.BeamItem] = []
 
+            # We check clause length. Fine to just check first
+            # item as they all have the same length
+            if len(beam[0].clause.body) >= self.max_clause_length:
+                raise Exception(
+                    f"Could not find a valid clause: max_clause_length {self.max_clause_length} reached"  # noqa: E501
+                )
+
             for beam_item in beam:
                 best_literals = self._find_next_best_literals(
                     beam_item.clause,
@@ -140,7 +150,7 @@ class FOIL:
                     )
 
             if len(new_beam) == 0:
-                raise Exception("Could not find a valid clause")
+                raise Exception("Could not find a valid clause: no new literals found")
 
             # sort literals info gain (descending)
             new_beam = sorted(
