@@ -22,7 +22,7 @@ def test_interprets_all_individual_pixels_of_colour(interpreter: Interpreter):
             and shape.width == 1
             and shape.colour == color
             and shape.position == (j, k)
-            and shape.mask == [[1]]
+            and shape.mask == [[color.value]]
             and shape.shape_type.name == "PIXEL"
         )
 

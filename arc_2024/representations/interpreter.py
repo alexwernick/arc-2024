@@ -51,6 +51,8 @@ class Interpreter:
             self.test_inputs
         )
 
+        # shape_types: self._interpret_shape_types()
+
         return self.InterpretedShapes(inputs, outputs, test_inputs)
 
     @staticmethod
@@ -81,12 +83,12 @@ class Interpreter:
         return arr
 
     @staticmethod
-    def _find_smallest_indices_with_q(arr: np.ndarray, q) -> Tuple[int, int]:
-        rows_with_q = np.any(arr == q, axis=1)
-        cols_with_q = np.any(arr == q, axis=0)
+    def _find_smallest_indices_greater_than_q(arr: np.ndarray, q) -> Tuple[int, int]:
+        rows_greater_than_q = np.any(arr > q, axis=1)
+        cols_greater_than_q = np.any(arr > q, axis=0)
 
-        min_i = np.where(rows_with_q)[0]
-        min_j = np.where(cols_with_q)[0]
+        min_i = np.where(rows_greater_than_q)[0]
+        min_j = np.where(cols_greater_than_q)[0]
 
         if min_i.size > 0 and min_j.size > 0:
             return int(min_i[0]), int(min_j[0])
@@ -116,7 +118,7 @@ class Interpreter:
         # we make a mask the size of the
         # whole grid and then chop it down later
         mask = np.zeros((grid.shape[0], grid.shape[1]), dtype=np.int16)
-        mask[starting_j, starting_k] = 1
+        mask[starting_j, starting_k] = grid[starting_j, starting_k]
 
         # loop over entire area surrounding the shape recursively
         # if the shape is not already in the searched_space
@@ -149,19 +151,16 @@ class Interpreter:
                 )
             )
             shape_frontier = shape_frontier - searched_space
-            mask[explore_j, explore_k] = 1
+            mask[explore_j, explore_k] = grid[explore_j, explore_k]
             searched_space.add((explore_j, explore_k))
 
-        position = Interpreter._find_smallest_indices_with_q(mask, 1)
+        position = Interpreter._find_smallest_indices_greater_than_q(mask, 0)
         mask = Interpreter._remove_zero_rows_and_cols(mask)
-        if shape_type == ShapeType.SINGLE_COLOUR:
-            return Shape(current_colour, position, mask, shape_type)
-        elif shape_type == ShapeType.MIXED_COLOUR:
-            if len(colours) == 1:
-                return None
-            return Shape(None, position, mask, shape_type, colours)
-        else:
-            raise ValueError(f"Shape type not supported: {shape_type}")
+
+        if shape_type == ShapeType.MIXED_COLOUR and len(colours) == 1:
+            return None
+
+        return Shape(position, mask, shape_type)
 
     @staticmethod
     def _interpret_individual_pixels(grid: NDArray[np.int16]) -> List[Shape]:
@@ -173,9 +172,8 @@ class Interpreter:
             for k in range(grid.shape[1]):
                 # isn't blank
                 if grid[j, k] != 0:
-                    colour = Colour(grid[j, k])
                     pixels.append(
-                        Shape(colour, (j, k), np.array([[1]]), ShapeType.PIXEL)
+                        Shape((j, k), np.array([[grid[j, k]]]), ShapeType.PIXEL)
                     )
 
         return pixels

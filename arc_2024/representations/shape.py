@@ -30,26 +30,33 @@ class Shape:
 
     def __init__(
         self,
-        colour: Optional[Colour],
         position: Tuple[int, int],
         mask: NDArray[np.int16],
-        shape_type: ShapeType,  # only doing to satisfy test setups. Need to remove
-        colours: Optional[set[Colour]] = None,
+        shape_type: ShapeType,
     ):
         if mask.ndim != 2:
             raise ValueError("Array must be 2D")
 
-        if shape_type != ShapeType.MIXED_COLOUR:
-            if colour is None:
-                raise ValueError("Colour must be provided for single colour shapes")
-            colours = {colour}
-
-        if colours is None and shape_type == ShapeType.MIXED_COLOUR:
-            raise ValueError("colours must be provided for mixed colour shapes")
+        self.colour = None
 
         height, width = mask.shape
 
-        self.colour = colour
+        unique_colours = np.unique(mask)
+        unique_colours_non_zero = unique_colours[unique_colours != 0]
+        colours: set[Colour] = {Colour(value) for value in unique_colours_non_zero}
+
+        if len(colours) == 0:
+            raise ValueError("Shapes must have at least one colour")
+
+        if len(colours) == 1:
+            self.colour = list(colours)[0]
+            if shape_type == ShapeType.MIXED_COLOUR:
+                raise ValueError("Single colour shapes must have only one colour")
+
+        if (
+            shape_type == ShapeType.SINGLE_COLOUR or shape_type == ShapeType.PIXEL
+        ) and len(colours) > 1:
+            raise ValueError("Single colour shapes must have only one colour")
 
         self.width = width
         self.height = height
@@ -98,17 +105,10 @@ class Shape:
     def __eq__(self, other):
         if isinstance(other, Shape):
             array_equal = np.array_equal(self.mask, other.mask)
-            colour_equal = self.colour == other.colour
+            colours_equal = self.colours == other.colours
             position_equal = self.position == other.position
             type_equal = self.shape_type == other.shape_type
-            colours_equal = self.colours == other.colours
-            return (
-                array_equal
-                and colour_equal
-                and position_equal
-                and type_equal
-                and colours_equal
-            )
+            return array_equal and colours_equal and position_equal and type_equal
         return False
 
     def __repr__(self):
@@ -396,6 +396,9 @@ class Shape:
         """
         Returns True if self and other have the same colour
         """
+        if self.colour is None:
+            return False
+
         return self.colour == other.colour
 
     def all_pixels(self) -> list[Tuple[int, int]]:

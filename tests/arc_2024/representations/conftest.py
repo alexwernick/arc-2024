@@ -5,7 +5,6 @@ from typing import Dict, List, NamedTuple
 import numpy as np
 import pytest
 
-from arc_2024.representations.colour import Colour
 from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape, ShapeType
 
@@ -39,186 +38,172 @@ def create_test_case_6d75e8bb() -> InterpreterTestCase:
     # example 1
     mask = np.array(
         [
-            [1, 1, 1, 0],
-            [1, 0, 0, 0],
-            [1, 1, 1, 1],
-            [1, 1, 0, 0],
-            [1, 1, 1, 0],
-            [1, 0, 0, 0],
-            [1, 1, 1, 0],
-            [1, 1, 1, 0],
-            [1, 1, 0, 0],
+            [8, 8, 8, 0],
+            [8, 0, 0, 0],
+            [8, 8, 8, 8],
+            [8, 8, 0, 0],
+            [8, 8, 8, 0],
+            [8, 0, 0, 0],
+            [8, 8, 8, 0],
+            [8, 8, 8, 0],
+            [8, 8, 0, 0],
         ],
         dtype=np.int16,
     )
 
     expected_input_shapes[0].append(
-        Shape(Colour(8), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[0].append(
-        Shape(Colour(8), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 0, 1], [1, 1, 1]], dtype=np.int16)
+    mask = np.array([[0, 0, 2], [2, 2, 2]], dtype=np.int16)
 
     expected_output_shapes[0].append(
-        Shape(Colour(2), (2, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
-        [[0, 1, 1], [0, 0, 1], [1, 1, 1], [0, 0, 1], [0, 0, 1], [0, 1, 1]],
+        [[0, 2, 2], [0, 0, 2], [2, 2, 2], [0, 0, 2], [0, 0, 2], [0, 2, 2]],
         dtype=np.int16,
     )
 
     expected_output_shapes[0].append(
-        Shape(Colour(2), (5, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((5, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
         [
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
+            [8, 8, 8, 2],
+            [8, 2, 2, 2],
+            [8, 8, 8, 8],
+            [8, 8, 2, 2],
+            [8, 8, 8, 2],
+            [8, 2, 2, 2],
+            [8, 8, 8, 2],
+            [8, 8, 8, 2],
+            [8, 8, 2, 2],
         ],
         dtype=np.int16,
     )
 
     expected_output_shapes[0].append(
         Shape(
-            None,
             (2, 1),
             mask,
             shape_type=ShapeType.MIXED_COLOUR,
-            colours={Colour(2), Colour(8)},
         )
     )
 
     # example 2
     mask = np.array(
         [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [1, 0, 1, 0, 0, 1],
-            [0, 0, 1, 0, 1, 1],
+            [8, 8, 8, 8, 8, 8],
+            [8, 0, 8, 8, 0, 8],
+            [8, 0, 8, 0, 0, 8],
+            [0, 0, 8, 0, 8, 8],
         ],
         dtype=np.int16,
     )
 
     expected_input_shapes[1].append(
-        Shape(Colour(8), (1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[1].append(
-        Shape(Colour(8), (1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 1], [0, 1], [1, 1]], dtype=np.int16)
+    mask = np.array([[0, 2], [0, 2], [2, 2]], dtype=np.int16)
 
     expected_output_shapes[1].append(
-        Shape(Colour(2), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 1], [1, 1], [1, 0]], dtype=np.int16)
+    mask = np.array([[0, 2], [2, 2], [2, 0]], dtype=np.int16)
 
     expected_output_shapes[1].append(
-        Shape(Colour(2), (2, 4), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 4), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
         [
-            [1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1],
+            [8, 8, 8, 8, 8, 8],
+            [8, 2, 8, 8, 2, 8],
+            [8, 2, 8, 2, 2, 8],
+            [2, 2, 8, 2, 8, 8],
         ],
         dtype=np.int16,
     )
 
     expected_output_shapes[1].append(
-        Shape(
-            None,
-            (1, 1),
-            mask,
-            shape_type=ShapeType.MIXED_COLOUR,
-            colours={Colour(2), Colour(8)},
-        )
+        Shape((1, 1), mask, shape_type=ShapeType.MIXED_COLOUR)
     )
 
     # example 3
     mask = np.array(
         [
-            [1, 1, 1, 1, 1],
-            [0, 0, 1, 0, 1],
-            [0, 1, 1, 1, 1],
-            [0, 0, 1, 1, 1],
-            [0, 0, 0, 1, 1],
-            [0, 0, 1, 1, 1],
+            [8, 8, 8, 8, 8],
+            [0, 0, 8, 0, 8],
+            [0, 8, 8, 8, 8],
+            [0, 0, 8, 8, 8],
+            [0, 0, 0, 8, 8],
+            [0, 0, 8, 8, 8],
         ],
         dtype=np.int16,
     )
 
     expected_input_shapes[2].append(
-        Shape(Colour(8), (1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[2].append(
-        Shape(Colour(8), (1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
-        [[1, 1, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 1, 0]], dtype=np.int16
+        [[2, 2, 0], [2, 0, 0], [2, 2, 0], [2, 2, 2], [2, 2, 0]], dtype=np.int16
     )
 
     expected_output_shapes[2].append(
-        Shape(Colour(2), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[1]], dtype=np.int16)
+    mask = np.array([[2]], dtype=np.int16)
     expected_output_shapes[2].append(
-        Shape(Colour(2), (2, 4), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 4), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
         [
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
+            [8, 8, 8, 8, 8],
+            [2, 2, 8, 2, 8],
+            [2, 8, 8, 8, 8],
+            [2, 2, 8, 8, 8],
+            [2, 2, 2, 8, 8],
+            [2, 2, 8, 8, 8],
         ],
         dtype=np.int16,
     )
 
     expected_output_shapes[2].append(
-        Shape(
-            None,
-            (1, 1),
-            mask,
-            shape_type=ShapeType.MIXED_COLOUR,
-            colours={Colour(2), Colour(8)},
-        )
+        Shape((1, 1), mask, shape_type=ShapeType.MIXED_COLOUR)
     )
 
     # test input 1
     mask = np.array(
         [
-            [1, 0, 0, 0, 0, 0, 0],
-            [1, 0, 0, 0, 1, 1, 0],
-            [1, 0, 1, 0, 0, 1, 0],
-            [1, 1, 1, 0, 0, 1, 0],
-            [1, 1, 1, 1, 0, 1, 1],
-            [1, 1, 1, 1, 1, 1, 1],
+            [8, 0, 0, 0, 0, 0, 0],
+            [8, 0, 0, 0, 8, 8, 0],
+            [8, 0, 8, 0, 0, 8, 0],
+            [8, 8, 8, 0, 0, 8, 0],
+            [8, 8, 8, 8, 0, 8, 8],
+            [8, 8, 8, 8, 8, 8, 8],
         ],
         dtype=np.int16,
     )
 
     expected_test_input_shapes[0].append(
-        Shape(Colour(8), (2, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     return InterpreterTestCase(
@@ -235,95 +220,95 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
     expected_test_input_shapes: List[List[Shape]] = [[] for _ in range(1)]
 
     # example 1
-    mask = np.array([[1, 0], [1, 1]], dtype=np.int16)
+    mask = np.array([[7, 0], [7, 7]], dtype=np.int16)
 
     expected_input_shapes[0].append(
-        Shape(Colour(7), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[0].append(
-        Shape(Colour(7), (2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[1, 1], [0, 1]], dtype=np.int16)
+    mask = np.array([[7, 7], [0, 7]], dtype=np.int16)
 
     expected_input_shapes[0].append(
-        Shape(Colour(7), (4, 6), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((4, 6), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[0].append(
-        Shape(Colour(7), (4, 6), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((4, 6), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 1], [1, 0]], dtype=np.int16)
+    mask = np.array([[0, 7], [7, 0]], dtype=np.int16)
 
     expected_output_shapes[0].append(
-        Shape(Colour(7), (0, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((0, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
-        [[0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0], [1, 0, 0, 0]], dtype=np.int16
+        [[0, 0, 0, 7], [0, 0, 7, 0], [0, 7, 0, 0], [7, 0, 0, 0]], dtype=np.int16
     )
 
     expected_output_shapes[0].append(
-        Shape(Colour(7), (6, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((6, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     # example 2
-    mask = np.array([[1, 0], [1, 1]], dtype=np.int16)
+    mask = np.array([[9, 0], [9, 9]], dtype=np.int16)
 
     expected_input_shapes[1].append(
-        Shape(Colour(9), (6, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((6, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[1].append(
-        Shape(Colour(9), (6, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((6, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[1, 1], [0, 1]], dtype=np.int16)
+    mask = np.array([[9, 9], [0, 9]], dtype=np.int16)
 
     expected_input_shapes[1].append(
-        Shape(Colour(9), (1, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[1].append(
-        Shape(Colour(9), (1, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
         [
-            [0, 0, 0, 0, 1],
-            [0, 0, 0, 1, 0],
-            [0, 0, 1, 0, 0],
-            [0, 1, 0, 0, 0],
-            [1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 9],
+            [0, 0, 0, 9, 0],
+            [0, 0, 9, 0, 0],
+            [0, 9, 0, 0, 0],
+            [9, 0, 0, 0, 0],
         ],
         dtype=np.int16,
     )
 
     expected_output_shapes[1].append(
-        Shape(Colour(9), (1, 5), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((1, 5), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]], dtype=np.int16)
+    mask = np.array([[0, 0, 9], [0, 9, 0], [9, 0, 0]], dtype=np.int16)
 
     expected_output_shapes[1].append(
-        Shape(Colour(9), (3, 0), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((3, 0), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     # test input 1
-    mask = np.array([[1, 1], [0, 1]], dtype=np.int16)
+    mask = np.array([[8, 8], [0, 8]], dtype=np.int16)
 
     expected_test_input_shapes[0].append(
-        Shape(Colour(8), (6, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((6, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[1, 1], [1, 0]], dtype=np.int16)
+    mask = np.array([[8, 8], [8, 0]], dtype=np.int16)
 
     expected_test_input_shapes[0].append(
-        Shape(Colour(8), (4, 7), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((4, 7), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
-    mask = np.array([[0, 1], [1, 1]], dtype=np.int16)
+    mask = np.array([[0, 8], [8, 8]], dtype=np.int16)
 
     expected_test_input_shapes[0].append(
-        Shape(Colour(8), (2, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+        Shape((2, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     return InterpreterTestCase(
