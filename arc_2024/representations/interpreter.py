@@ -4,7 +4,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
-from arc_2024.representations.shape import Shape, ShapeType
+from arc_2024.representations.rotatable_mask_shape import RotatableMaskShape
+from arc_2024.representations.shape import Shape
+from arc_2024.representations.shape_type import ShapeType
 
 
 class Interpreter:
@@ -51,7 +53,10 @@ class Interpreter:
             self.test_inputs
         )
 
-        # shape_types: self._interpret_shape_types()
+        self._interpret_and_enrich_with_shape_types(inputs, test_inputs)
+
+        # inputs[0] = inputs[0][-2:]
+        # inputs[1] = inputs[1][-2:]
 
         return self.InterpretedShapes(inputs, outputs, test_inputs)
 
@@ -227,3 +232,83 @@ class Interpreter:
             )
 
         return shapes
+
+    @staticmethod
+    def _interpret_and_enrich_with_shape_types(
+        inputs_shapes: List[List[Shape]], test_inputs_shapes: List[List[Shape]]
+    ):
+        # for now we just look for shapes with matching mask shapes
+        masks: List[NDArray[np.int16]] = []
+        test_masks: List[NDArray[np.int16]] = []
+        rotation_of_masks: List[NDArray[np.int16]] = []
+        rotation_of_masks_in_test: List[NDArray[np.int16]] = []
+
+        # get all the masks from the inputs
+        for input_shapes in inputs_shapes:
+            for input_shape in input_shapes:
+                if input_shape.shape_type != ShapeType.PIXEL:
+                    masks.append(input_shape.mask)
+
+        # get all masks we see more than once
+        while masks:
+            mask = masks.pop()
+            if Shape.is_mask_rotationally_symmetric(mask):
+                continue
+
+            non_matching_masks = [
+                m for m in masks if not Shape.is_mask_rotation_of(mask, m)
+            ]
+            if len(non_matching_masks) < len(masks):
+                rotation_of_masks.append(mask)
+                masks = non_matching_masks
+
+        # get all the masks from the test inputs
+        for test_input_shapes in test_inputs_shapes:
+            for test_input_shape in test_input_shapes:
+                if test_input_shape.shape_type != ShapeType.PIXEL:
+                    test_masks.append(test_input_shape.mask)
+
+        # get all masks we see in test inputs
+        for rot_mask in rotation_of_masks:
+            for test_mask in test_masks:
+                if Shape.is_mask_rotation_of(rot_mask, test_mask):
+                    rotation_of_masks_in_test.append(rot_mask)
+                    break
+
+        for rot_num, rot_mask in enumerate(rotation_of_masks_in_test):
+            for i in range(len(inputs_shapes)):
+                for j in range(len(inputs_shapes[i])):
+                    if Shape.is_mask_rotation_of(rot_mask, inputs_shapes[i][j].mask):
+                        # create new shape with is a type and has all the rotated
+                        rotatable_mask_shape = RotatableMaskShape(
+                            inputs_shapes[i][j].position,
+                            inputs_shapes[i][j].mask,
+                            rot_mask.astype(bool),
+                            inputs_shapes[i][j].shape_type,
+                        )
+
+                        rotatable_mask_shape.add_group(
+                            f"ROTATIONALLY_SYMMETRIC-{rot_num}"
+                        )
+
+                        inputs_shapes[i].append(rotatable_mask_shape)
+
+        for rot_num, rot_mask in enumerate(rotation_of_masks_in_test):
+            for i in range(len(test_inputs_shapes)):
+                for j in range(len(test_inputs_shapes[i])):
+                    if Shape.is_mask_rotation_of(
+                        rot_mask, test_inputs_shapes[i][j].mask
+                    ):
+                        # create new shape with is a type and has all the rotated
+                        rotatable_mask_shape = RotatableMaskShape(
+                            test_inputs_shapes[i][j].position,
+                            test_inputs_shapes[i][j].mask,
+                            rot_mask.astype(bool),
+                            test_inputs_shapes[i][j].shape_type,
+                        )
+
+                        rotatable_mask_shape.add_group(
+                            f"ROTATIONALLY_SYMMETRIC-{rot_num}"
+                        )
+
+                        test_inputs_shapes[i].append(rotatable_mask_shape)

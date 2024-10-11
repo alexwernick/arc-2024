@@ -71,6 +71,7 @@ class FOIL:
             ex for is_pos, ex in examples if not is_pos
         ]
 
+        # Maybe try limiting number of shapes in clause?....
         uncovered_pos = pos_examples.copy()
 
         while uncovered_pos:

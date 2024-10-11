@@ -1,18 +1,12 @@
-from enum import Enum
 from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
+from arc_2024.representations.shape_type import ShapeType
 
 RelationshipType = Callable[["Shape"], bool]
-
-
-class ShapeType(Enum):
-    PIXEL = 1
-    SINGLE_COLOUR = 2
-    MIXED_COLOUR = 3
 
 
 class Shape:
@@ -27,6 +21,7 @@ class Shape:
     shape_type: ShapeType
     colours: set[Colour]
     colour_count: int
+    shape_groups: set[str]
 
     def __init__(
         self,
@@ -82,6 +77,7 @@ class Shape:
         centre_height = self.position[0] + self.height / 2 - 0.5
         centre_width = self.position[1] + self.width / 2 - 0.5
         self.centre = (centre_height, centre_width)
+        self.shape_groups = set()
 
         self.relationships = {
             "is_exact_match": self.is_exact_match,
@@ -89,10 +85,10 @@ class Shape:
             "is_below": self.is_below,
             "is_left_of": self.is_left_of,
             "is_right_of": self.is_right_of,
-            "is_inline_horizontally_above_right": self.is_inline_horizontally_above_right,  # noqa: E501
-            "is_inline_horizontally_above_left": self.is_inline_horizontally_above_left,
-            "is_inline_horizontally_below_right": self.is_inline_horizontally_below_right,  # noqa: E501
-            "is_inline_horizontally_below_left": self.is_inline_horizontally_below_left,
+            "is_inline_diagonally_above_right": self.is_inline_diagonally_above_right,  # noqa: E501
+            "is_inline_diagonally_above_left": self.is_inline_diagonally_above_left,
+            "is_inline_diagonally_below_right": self.is_inline_diagonally_below_right,  # noqa: E501
+            "is_inline_diagonally_below_left": self.is_inline_diagonally_below_left,
             "is_inline_above_vertically": self.is_inline_above_vertically,
             "is_inline_below_vertically": self.is_inline_below_vertically,
             "is_inline_left_horizontally": self.is_inline_left_horizontally,
@@ -152,7 +148,7 @@ class Shape:
 
     def is_left_of_j(self, j: Union[int, float]) -> bool:
         """
-        Returns True if self is left of i
+        Returns True if self is left of j
         """
         return self.centre[1] < j
 
@@ -164,77 +160,73 @@ class Shape:
 
     def is_right_of_j(self, j: Union[int, float]) -> bool:
         """
-        Returns True if self is right of i
+        Returns True if self is right of j
         """
         return self.centre[1] > j
 
-    def is_inline_horizontally_above_right(self, other: "Shape") -> bool:
+    def is_inline_diagonally_above_right(self, other: "Shape") -> bool:
         """
-        Returns True if self inline with other horizontally and above and to the right
+        Returns True if self inline with other diagonally and above and to the right
         """
-        return self.is_inline_horizontally_above_right_ij(
+        return self.is_inline_diagonally_above_right_ij(
             other.centre[0], other.centre[1]
         )
 
-    def is_inline_horizontally_above_right_ij(
+    def is_inline_diagonally_above_right_ij(
         self, i: Union[int, float], j: Union[int, float]
     ) -> bool:
         """
-        Returns True if self inline with i,j horizontally and above and to the right
+        Returns True if self inline with i,j diagonally and above and to the right
         """
         above_by = i - self.centre[0]
         right_by = self.centre[1] - j
         return above_by == right_by and above_by > 0
 
-    def is_inline_horizontally_above_left(self, other: "Shape") -> bool:
+    def is_inline_diagonally_above_left(self, other: "Shape") -> bool:
         """
-        Returns True if self inline with i,j horizontally and above and to the left
+        Returns True if self inline with i,j diagonally and above and to the left
         """
-        return self.is_inline_horizontally_above_left_ij(
-            other.centre[0], other.centre[1]
-        )
+        return self.is_inline_diagonally_above_left_ij(other.centre[0], other.centre[1])
 
-    def is_inline_horizontally_above_left_ij(
+    def is_inline_diagonally_above_left_ij(
         self, i: Union[int, float], j: Union[int, float]
     ) -> bool:
         """
-        Returns True if self inline with i,j horizontally and above and to the left
+        Returns True if self inline with i,j diagonally and above and to the left
         """
         above_by = i - self.centre[0]
         left_by = j - self.centre[1]
         return above_by == left_by and above_by > 0
 
-    def is_inline_horizontally_below_right(self, other: "Shape") -> bool:
+    def is_inline_diagonally_below_right(self, other: "Shape") -> bool:
         """
-        Returns True if self inline with other horizontally and below and to the right
+        Returns True if self inline with other diagonally and below and to the right
         """
-        return self.is_inline_horizontally_below_right_ij(
+        return self.is_inline_diagonally_below_right_ij(
             other.centre[0], other.centre[1]
         )
 
-    def is_inline_horizontally_below_right_ij(
+    def is_inline_diagonally_below_right_ij(
         self, i: Union[int, float], j: Union[int, float]
     ) -> bool:
         """
-        Returns True if self inline with i,j horizontally and below and to the right
+        Returns True if self inline with i,j diagonally and below and to the right
         """
         below_by = self.centre[0] - i
         right_by = self.centre[1] - j
         return below_by == right_by and below_by > 0
 
-    def is_inline_horizontally_below_left(self, other: "Shape") -> bool:
+    def is_inline_diagonally_below_left(self, other: "Shape") -> bool:
         """
-        Returns True if self inline with other horizontally and below and to the left
+        Returns True if self inline with other diagonally and below and to the left
         """
-        return self.is_inline_horizontally_below_left_ij(
-            other.centre[0], other.centre[1]
-        )
+        return self.is_inline_diagonally_below_left_ij(other.centre[0], other.centre[1])
 
-    def is_inline_horizontally_below_left_ij(
+    def is_inline_diagonally_below_left_ij(
         self, i: Union[int, float], j: Union[int, float]
     ) -> bool:
         """
-        Returns True if self inline with i,j horizontally and below and to the left
+        Returns True if self inline with i,j diagonally and below and to the left
         """
         below_by = self.centre[0] - i
         left_by = j - self.centre[1]
@@ -396,10 +388,74 @@ class Shape:
         """
         Returns True if self and other have the same colour
         """
+        return self.is_same_colour_as(other.colour)
+
+    def is_same_colour_as(self, colour: Optional[Colour]) -> bool:
+        """
+        Returns True if self has the same colour as colour
+        """
         if self.colour is None:
             return False
 
-        return self.colour == other.colour
+        return self.colour == colour
+
+    def horizontal_distance_from_center(self, other: "Shape") -> Union[int, float]:
+        """
+        The horizontal distance between the centers of the two shapes
+        """
+        return self.horizontal_distance_from_center_ij(other.centre[0], other.centre[1])
+
+    def horizontal_distance_from_center_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> Union[int, float]:
+        """
+        The horizontal distance between the center and the point j
+        """
+        return abs(self.centre[1] - j)
+
+    def vertical_distance_from_center(self, other: "Shape") -> Union[int, float]:
+        """
+        The vertical distance between the centers of the two shapes
+        """
+        return self.vertical_distance_from_center_ij(other.centre[0], other.centre[1])
+
+    def vertical_distance_from_center_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> Union[int, float]:
+        """
+        The vertical distance between the center and the point i
+        """
+        return abs(self.centre[0] - i)
+
+    def horizontal_distance_from_edge_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> Union[int, float]:
+        """
+        The horizontal distance between the edge and the point j
+        """
+        if Shape.is_left_of_j(
+            self, j
+        ):  # call Shape here to make sure we don't rotate again for RotatableMaskShape
+            return abs(self.right_most - j)
+        elif Shape.is_right_of_j(self, j):
+            return abs(self.left_most - j)
+        else:
+            return 0
+
+    def vertical_distance_from_edge_ij(
+        self, i: Union[int, float], j: Union[int, float]
+    ) -> Union[int, float]:
+        """
+        The vertical distance between the edge and the point i
+        """
+        if Shape.is_above_i(
+            self, i
+        ):  # call Shape here to make sure we don't rotate again for RotatableMaskShape
+            return abs(self.bottom_most - i)
+        elif Shape.is_below_i(self, i):
+            return abs(self.top_most - i)
+        else:
+            return 0
 
     def all_pixels(self) -> list[Tuple[int, int]]:
         """
@@ -411,3 +467,40 @@ class Shape:
                 if self.mask[i, j]:
                     pixels.append((self.position[0] + i, self.position[1] + j))
         return pixels
+
+    def add_group(self, group: str) -> None:
+        """
+        Adds a group to the shape
+        """
+        self.shape_groups.add(group)
+
+    @staticmethod
+    def is_mask_rotation_of(
+        self_mask: NDArray[np.int16], other_mask: NDArray[np.int16]
+    ) -> bool:
+        """
+        Returns if rotation of self's mask is equal to other's mask
+        Does not care about colour
+        """
+        rot0: NDArray[np.bool] = self_mask.astype(bool)
+        rot90 = np.rot90(rot0)
+        rot180 = np.rot90(rot90)
+        rot270 = np.rot90(rot180)
+
+        other_bool: NDArray[np.bool] = other_mask.astype(bool)
+
+        return (
+            np.array_equal(rot0, other_bool)
+            or np.array_equal(rot90, other_bool)
+            or np.array_equal(rot180, other_bool)
+            or np.array_equal(rot270, other_bool)
+        )
+
+    @staticmethod
+    def is_mask_rotationally_symmetric(self_mask: NDArray[np.int16]) -> bool:
+        """
+        Returns if the mask is rotationally symmetric
+        """
+        rot0: NDArray[np.bool] = self_mask.astype(bool)
+        rot90 = np.rot90(rot0)
+        return np.array_equal(rot0, rot90)

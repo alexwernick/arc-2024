@@ -14,7 +14,8 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 from arc_2024.inductive_logic_programming.FOIL import FOIL
 from arc_2024.representations.colour import Colour
 from arc_2024.representations.interpreter import Interpreter
-from arc_2024.representations.shape import Shape, ShapeType
+from arc_2024.representations.shape import Shape
+from arc_2024.representations.shape_type import ShapeType
 
 
 class Solver:
@@ -28,6 +29,7 @@ class Solver:
         i_arg: ArgType
         j_arg: ArgType
         shape_arg: ArgType
+        number_value_arg: ArgType
 
     class Variables(NamedTuple):
         v1: Variable
@@ -42,10 +44,10 @@ class Solver:
         below_pred: Predicate
         left_of_pred: Predicate
         right_of_pred: Predicate
-        inline_horizontally_above_right_pred: Predicate
-        inline_horizontally_above_left_pred: Predicate
-        inline_horizontally_below_right_pred: Predicate
-        inline_horizontally_below_left_pred: Predicate
+        inline_diagonally_above_right_pred: Predicate
+        inline_diagonally_above_left_pred: Predicate
+        inline_diagonally_below_right_pred: Predicate
+        inline_diagonally_below_left_pred: Predicate
         inline_above_vertically_pred: Predicate
         inline_below_vertically_pred: Predicate
         inline_left_horizontally_pred: Predicate
@@ -55,12 +57,23 @@ class Solver:
         inside_not_overlapping_pred: Predicate
         top_left_bottom_right_diag_pred: Predicate
         bottom_left_top_right_diag_pred: Predicate
-        shape_colour_predicates: list[Predicate]
+        # shape_colour_predicates: list[Predicate]
         colour_predicates: list[RuleBasedPredicate]
         shape_size_predicates: list[Predicate]
-        inequality_predicates: list[RuleBasedPredicate]
+        # inequality_predicates: list[RuleBasedPredicate]
         shape_colour_count_predicates: list[Predicate]
         grid_colour_count_predicates: list[Predicate]
+        shape_group_predicates: list[Predicate]
+        shape_colour_pred: Predicate
+        vertical_center_distance_more_than_pred: Predicate
+        vertical_center_distance_less_than_pred: Predicate
+        horizontal_center_distance_more_than_pred: Predicate
+        horizontal_center_distance_less_than_pred: Predicate
+        vertical_edge_distance_more_than_pred: Predicate
+        vertical_edge_distance_less_than_pred: Predicate
+        horizontal_edge_distance_more_than_pred: Predicate
+        horizontal_edge_distance_less_than_pred: Predicate
+        number_value_predicates: list[RuleBasedPredicate]
 
         def to_list(self) -> list[Predicate]:
             flattened: list[Predicate] = []
@@ -131,9 +144,7 @@ class Solver:
         foil.fit(examples)
 
         return self._calculate_results(
-            foil,
-            possible_colours,
-            variables,
+            foil, possible_colours, variables, test_inputs_shapes
         )
 
     def _extract_all_possible_colour_counts_for_grids(self) -> List[int]:
@@ -149,8 +160,8 @@ class Solver:
     # use as well for other puzzles
     def _get_possible_i_values_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
-        for example_number, input in enumerate(self.inputs):
-            possible_values[example_number] = list(range(input.shape[0]))
+        for example_number, output in enumerate(self.outputs):
+            possible_values[example_number] = list(range(output.shape[0]))
 
         def get_possible_i_values(example: dict[str, Any]) -> list:
             # V1 is set as example number
@@ -161,8 +172,8 @@ class Solver:
 
     def _get_possible_j_values_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
-        for example_number, input in enumerate(self.inputs):
-            possible_values[example_number] = list(range(input.shape[1]))
+        for example_number, output in enumerate(self.outputs):
+            possible_values[example_number] = list(range(output.shape[1]))
 
         def get_possible_j_values(example: dict[str, Any]) -> list:
             # V1 is set as example number
@@ -170,6 +181,21 @@ class Solver:
             return possible_values[example_number]
 
         return get_possible_j_values
+
+    def _get_possible_mumber_values_func(self) -> Callable[[dict[str, Any]], list]:
+        possible_values = {}
+        for example_number, output in enumerate(self.outputs):
+            # we just take the max of the input and output cords
+            # this will create unnecessary values for non square grids
+            max_value = max(output.shape[0], output.shape[1])
+            possible_values[example_number] = list(range(max_value))
+
+        def get_possible_mumber_values(example: dict[str, Any]) -> list:
+            # V1 is set as example number
+            example_number = example["V1"]
+            return possible_values[example_number]
+
+        return get_possible_mumber_values
 
     def _get_possible_shapes_func(
         self, inputs_shapes: List[List[Shape]], outputs_shapes: List[List[Shape]]
@@ -241,7 +267,14 @@ class Solver:
         foil: FOIL,
         possible_colours: list[Colour],
         variables: Variables,
+        test_inputs_shapes: list[list[Shape]],
     ) -> List[NDArray[np.int16]]:
+        # We extend possible colours with any in test inputs
+        more_possible_colours: list[Colour] = self._extract_all_possible_colours(
+            test_inputs_shapes
+        )  # noqa: E501
+        possible_colours.extend(more_possible_colours)
+
         # we iteratively populate the test outputs
         test_outputs: List[NDArray[np.int16]] = []
         for test_number, input_grid in enumerate(self.test_inputs):
@@ -315,17 +348,63 @@ class Solver:
             zip(inputs_shapes, outputs)
         ):
             ex_test_number = ex_number + ex_number_offset
-            for i in range(output_grid.shape[0]):
-                for j in range(output_grid.shape[1]):
-                    for input_shape_index, input_shape in enumerate(input_shapes):
-                        # for now lets ignore pixels
-                        if input_shape.shape_type == ShapeType.PIXEL:
-                            continue
 
-                        input_shape_name = self._generate_shape_name(
-                            ex_test_number, True, input_shape_index
+            for input_shape_index, input_shape in enumerate(input_shapes):
+                # for now lets ignore pixels
+                if input_shape.shape_type == ShapeType.PIXEL:
+                    continue
+
+                input_shape_name = self._generate_shape_name(
+                    ex_test_number, True, input_shape_index
+                )
+
+                if input_shape.colour is not None:
+                    background_knowledge[predicates.shape_colour_pred.name].add(
+                        (ex_test_number, input_shape_name, input_shape.colour)
+                    )
+
+                # if input_shape.colour is not None:
+                #     for colour_pred in predicates.shape_colour_predicates:
+                #         if (
+                #             self._generate_shape_colour_pred_name(input_shape.colour)
+                #             == colour_pred.name
+                #         ):
+                #             background_knowledge[colour_pred.name].add((ex_test_number, input_shape_name)) # noqa: E501
+
+                for shape_colour_count_pred in predicates.shape_colour_count_predicates:
+                    if (
+                        self._generate_shape_colour_count_pred_name(
+                            input_shape.colour_count
+                        )
+                        == shape_colour_count_pred.name
+                    ):
+                        background_knowledge[shape_colour_count_pred.name].add(
+                            (ex_test_number, input_shape_name)
                         )
 
+                for shape_size_pred in predicates.shape_size_predicates:
+                    if (
+                        self._generate_shape_size_pred_name(
+                            input_shape.num_of_coloured_pixels
+                        )
+                        == shape_size_pred.name
+                    ):
+                        background_knowledge[shape_size_pred.name].add(
+                            (ex_test_number, input_shape_name)
+                        )
+
+                for shape_group_pred in predicates.shape_group_predicates:
+                    for shape_group in input_shape.shape_groups:
+                        if (
+                            self._generate_shape_group_pred_name(shape_group)
+                            == shape_group_pred.name
+                        ):
+                            background_knowledge[shape_group_pred.name].add(
+                                (ex_test_number, input_shape_name)
+                            )
+
+                for i in range(output_grid.shape[0]):
+                    for j in range(output_grid.shape[1]):
                         self._append_background_knowledge_for_shape(
                             background_knowledge,
                             i,
@@ -386,9 +465,9 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_horizontally_above_right_ij(output_i, output_j):
+        if input_shape.is_inline_diagonally_above_right_ij(output_i, output_j):
             background_knowledge[
-                predicates.inline_horizontally_above_right_pred.name
+                predicates.inline_diagonally_above_right_pred.name
             ].add(
                 (
                     ex_number,
@@ -398,9 +477,19 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_horizontally_above_left_ij(output_i, output_j):
+        if input_shape.is_inline_diagonally_above_left_ij(output_i, output_j):
+            background_knowledge[predicates.inline_diagonally_above_left_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        if input_shape.is_inline_diagonally_below_right_ij(output_i, output_j):
             background_knowledge[
-                predicates.inline_horizontally_above_left_pred.name
+                predicates.inline_diagonally_below_right_pred.name
             ].add(
                 (
                     ex_number,
@@ -410,22 +499,8 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_horizontally_below_right_ij(output_i, output_j):
-            background_knowledge[
-                predicates.inline_horizontally_below_right_pred.name
-            ].add(
-                (
-                    ex_number,
-                    output_i,
-                    output_j,
-                    input_shape_name,
-                )
-            )
-
-        if input_shape.is_inline_horizontally_below_left_ij(output_i, output_j):
-            background_knowledge[
-                predicates.inline_horizontally_below_left_pred.name
-            ].add(
+        if input_shape.is_inline_diagonally_below_left_ij(output_i, output_j):
+            background_knowledge[predicates.inline_diagonally_below_left_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -504,6 +579,64 @@ class Solver:
                 )
             )
 
+        vertical_center_distance = input_shape.vertical_distance_from_center_ij(
+            output_i,
+            output_j,
+        )
+        horizontal_center_distance = input_shape.horizontal_distance_from_center_ij(
+            output_i,
+            output_j,
+        )
+        vertical_edge_distance = input_shape.vertical_distance_from_edge_ij(
+            output_i,
+            output_j,
+        )
+        horizontal_edge_distance = input_shape.horizontal_distance_from_edge_ij(
+            output_i,
+            output_j,
+        )
+
+        for number in range(self._get_max_num_arg_value()):
+            if vertical_center_distance > number:
+                background_knowledge[
+                    predicates.vertical_center_distance_more_than_pred.name
+                ].add((ex_number, output_i, input_shape_name, number))
+
+            if vertical_center_distance < number:
+                background_knowledge[
+                    predicates.vertical_center_distance_less_than_pred.name
+                ].add((ex_number, output_i, input_shape_name, number))
+
+            if horizontal_center_distance > number:
+                background_knowledge[
+                    predicates.horizontal_center_distance_more_than_pred.name
+                ].add((ex_number, output_j, input_shape_name, number))
+
+            if horizontal_center_distance < number:
+                background_knowledge[
+                    predicates.horizontal_center_distance_less_than_pred.name
+                ].add((ex_number, output_j, input_shape_name, number))
+
+            if vertical_edge_distance > number:
+                background_knowledge[
+                    predicates.vertical_edge_distance_more_than_pred.name
+                ].add((ex_number, output_i, input_shape_name, number))
+
+            if vertical_edge_distance < number:
+                background_knowledge[
+                    predicates.vertical_edge_distance_less_than_pred.name
+                ].add((ex_number, output_i, input_shape_name, number))
+
+            if horizontal_edge_distance > number:
+                background_knowledge[
+                    predicates.horizontal_edge_distance_more_than_pred.name
+                ].add((ex_number, output_j, input_shape_name, number))
+
+            if horizontal_edge_distance < number:
+                background_knowledge[
+                    predicates.horizontal_edge_distance_less_than_pred.name
+                ].add((ex_number, output_j, input_shape_name, number))
+
         # if input_shape.shape_type == ShapeType.MIXED_COLOUR:
         #     background_knowledge[self._MIXED_COLOUR_SHAPE_PRED_NAME].add(
         #         (input_shape_name,)
@@ -513,32 +646,6 @@ class Solver:
         #     background_knowledge[self._SINGLE_COLOUR_SHAPE_PRED_NAME].add(
         #         (input_shape_name,)
         #     )
-
-        if input_shape.colour is not None:
-            for colour_pred in predicates.shape_colour_predicates:
-                if (
-                    self._generate_shape_colour_pred_name(input_shape.colour)
-                    == colour_pred.name
-                ):
-                    background_knowledge[colour_pred.name].add((input_shape_name,))
-
-        for shape_colour_pred in predicates.shape_colour_count_predicates:
-            if (
-                self._generate_shape_colour_count_pred_name(input_shape.colour_count)
-                == shape_colour_pred.name
-            ):
-                background_knowledge[shape_colour_pred.name].add(
-                    (ex_number, input_shape_name)
-                )
-
-        for shape_size_pred in predicates.shape_size_predicates:
-            if (
-                self._generate_shape_size_pred_name(input_shape.num_of_coloured_pixels)
-                == shape_size_pred.name
-            ):
-                background_knowledge[shape_size_pred.name].add(
-                    (ex_number, input_shape_name)
-                )
 
     def _create_args_types(
         self,
@@ -560,12 +667,17 @@ class Solver:
             ),
         )  # noqa: E501
 
+        number_value_arg = ArgType(
+            "number_value", possible_values_fn=self._get_possible_mumber_values_func()
+        )
+
         return self.ArgTypes(
             colour_type_arg=colour_type_arg,
             example_number_arg=example_number_arg,
             i_arg=i_arg,
             j_arg=j_arg,
             shape_arg=shape_arg,
+            number_value_arg=number_value_arg,
         )
 
     def _create_variables(self, arg_types: ArgTypes) -> Variables:
@@ -605,6 +717,7 @@ class Solver:
         i_arg = arg_types.i_arg
         j_arg = arg_types.j_arg
         shape_arg = arg_types.shape_arg
+        number_value_arg = arg_types.number_value_arg
 
         input_pred = Predicate(
             "input", 4, [ex_num_arg, colour_type_arg, i_arg, j_arg]
@@ -614,23 +727,23 @@ class Solver:
         below_pred = Predicate("below", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
         left_of_pred = Predicate("left-of", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
         right_of_pred = Predicate("right-of", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
-        inline_horizontally_above_right_pred = Predicate(
-            "inline-horizontally-above-right",
+        inline_diagonally_above_right_pred = Predicate(
+            "inline-diagonally-above-right",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
-        inline_horizontally_above_left_pred = Predicate(
-            "inline-horizontally-above-left",
+        inline_diagonally_above_left_pred = Predicate(
+            "inline-diagonally-above-left",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
-        inline_horizontally_below_right_pred = Predicate(
-            "inline-horizontally-below-right",
+        inline_diagonally_below_right_pred = Predicate(
+            "inline-diagonally-below-right",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
-        inline_horizontally_below_left_pred = Predicate(
-            "inline-horizontally-below-left",
+        inline_diagonally_below_left_pred = Predicate(
+            "inline-diagonally-below-left",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
@@ -677,6 +790,11 @@ class Solver:
             [ex_num_arg, i_arg, j_arg],
             self._get_bottom_left_top_right_diag_eval_func(),
         )
+        shape_colour_pred = Predicate(
+            "shape-colour",
+            3,
+            [ex_num_arg, shape_arg, colour_type_arg],
+        )
         # mixed_colour_shape_pred = Predicate(
         #     "mixed-colour-shape, 1, [shape_arg]
         # )
@@ -684,17 +802,17 @@ class Solver:
         #     "single-colour-shape", 1, [shape_arg]
         # )
 
-        shape_colour_predicates: list[Predicate] = []
+        # shape_colour_predicates: list[Predicate] = []
         colour_predicates: list[RuleBasedPredicate] = []
 
         for colour in possible_colours:
-            shape_colour_predicates.append(
-                Predicate(
-                    self._generate_shape_colour_pred_name(colour),
-                    2,
-                    [ex_num_arg, shape_arg],
-                )
-            )
+            # shape_colour_predicates.append(
+            #     Predicate(
+            #         self._generate_shape_colour_pred_name(colour),
+            #         2,
+            #         [ex_num_arg, shape_arg],
+            #     )
+            # )
 
             colour_predicates.append(
                 RuleBasedPredicate(
@@ -715,57 +833,57 @@ class Solver:
                 )
             )
 
-        max_is: set[int] = set()
-        max_js: set[int] = set()
-        for output in self.outputs:
-            max_is.add(output.shape[0])
-            max_js.add(output.shape[1])
+        # max_is: set[int] = set()
+        # max_js: set[int] = set()
+        # for output in self.outputs:
+        #     max_is.add(output.shape[0])
+        #     max_js.add(output.shape[1])
 
-        max_i = max(max_is)
-        max_j = max(max_js)
+        # max_i = max(max_is)
+        # max_j = max(max_js)
 
-        inequality_predicates: list[RuleBasedPredicate] = []
-        for i in range(max_i):
-            if i != max_i:
-                inequality_predicates.append(
-                    RuleBasedPredicate(
-                        f"i-greater-than-{i}",
-                        1,
-                        [i_arg],
-                        self._get_more_than_eval_func(i),
-                    )
-                )
+        # inequality_predicates: list[RuleBasedPredicate] = []
+        # for i in range(max_i):
+        #     if i != max_i:
+        #         inequality_predicates.append(
+        #             RuleBasedPredicate(
+        #                 f"i-greater-than-{i}",
+        #                 1,
+        #                 [i_arg],
+        #                 self._get_more_than_eval_func(i),
+        #             )
+        #         )
 
-            if i != 0:
-                inequality_predicates.append(
-                    RuleBasedPredicate(
-                        f"i-less-than-{i}",
-                        1,
-                        [i_arg],
-                        self._get_less_than_eval_func(i),
-                    )
-                )
+        #     if i != 0:
+        #         inequality_predicates.append(
+        #             RuleBasedPredicate(
+        #                 f"i-less-than-{i}",
+        #                 1,
+        #                 [i_arg],
+        #                 self._get_less_than_eval_func(i),
+        #             )
+        #         )
 
-        for j in range(max_j):
-            if i != max_j:
-                inequality_predicates.append(
-                    RuleBasedPredicate(
-                        f"j-greater-than-{j}",
-                        1,
-                        [j_arg],
-                        self._get_more_than_eval_func(j),
-                    )
-                )
+        # for j in range(max_j):
+        #     if i != max_j:
+        #         inequality_predicates.append(
+        #             RuleBasedPredicate(
+        #                 f"j-greater-than-{j}",
+        #                 1,
+        #                 [j_arg],
+        #                 self._get_more_than_eval_func(j),
+        #             )
+        #         )
 
-            if j != 0:
-                inequality_predicates.append(
-                    RuleBasedPredicate(
-                        f"j-less-than-{j}",
-                        1,
-                        [j_arg],
-                        self._get_less_than_eval_func(j),
-                    )
-                )
+        #     if j != 0:
+        #         inequality_predicates.append(
+        #             RuleBasedPredicate(
+        #                 f"j-less-than-{j}",
+        #                 1,
+        #                 [j_arg],
+        #                 self._get_less_than_eval_func(j),
+        #             )
+        #         )
 
         shape_colour_count_predicates: list[Predicate] = []
         for possible_count in self._extract_all_possible_colour_counts_for_shapes(
@@ -774,8 +892,8 @@ class Solver:
             shape_colour_count_predicates.append(
                 Predicate(
                     self._generate_shape_colour_count_pred_name(possible_count),
-                    1,
-                    [shape_arg],
+                    2,
+                    [ex_num_arg, shape_arg],
                 )
             )
 
@@ -789,6 +907,74 @@ class Solver:
                 )
             )
 
+        shape_group_predicates: list[Predicate] = []
+        for shape_group in self._extract_all_possible_shape_groups(inputs_shapes):
+            shape_group_pred = Predicate(
+                self._generate_shape_group_pred_name(shape_group),
+                2,
+                [ex_num_arg, shape_arg],
+            )
+            shape_group_predicates.append(shape_group_pred)
+
+        vertical_center_distance_more_than_pred = Predicate(
+            "vertical-center-distance-more-than",
+            4,
+            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+        )
+
+        vertical_center_distance_less_than_pred = Predicate(
+            "vertical-center-distance-less-than",
+            4,
+            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+        )
+
+        horizontal_center_distance_more_than_pred = Predicate(
+            "horizontal-center-distance-more-than",
+            4,
+            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+        )
+
+        horizontal_center_distance_less_than_pred = Predicate(
+            "horizontal-center-distance-less-than",
+            4,
+            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+        )
+
+        vertical_edge_distance_more_than_pred = Predicate(
+            "vertical-edge-distance-more-than",
+            4,
+            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+        )
+
+        vertical_edge_distance_less_than_pred = Predicate(
+            "vertical-edge-distance-less-than",
+            4,
+            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+        )
+
+        horizontal_edge_distance_more_than_pred = Predicate(
+            "horizontal-edge-distance-more-than",
+            4,
+            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+        )
+
+        horizontal_edge_distance_less_than_pred = Predicate(
+            "horizontal-edge-distance-less-than",
+            4,
+            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+        )
+
+        number_value_predicates: list[RuleBasedPredicate] = []
+        for number in range(self._get_max_num_arg_value()):
+            number_value_predicates.append(
+                RuleBasedPredicate(
+                    f"number-{number}",
+                    1,
+                    [number_value_arg],
+                    self._get_number_eval_func(number),
+                )
+            )
+
         return self.Predicates(
             input_pred=input_pred,
             empty_pred=empty_pred,
@@ -796,10 +982,10 @@ class Solver:
             below_pred=below_pred,
             left_of_pred=left_of_pred,
             right_of_pred=right_of_pred,
-            inline_horizontally_above_right_pred=inline_horizontally_above_right_pred,
-            inline_horizontally_above_left_pred=inline_horizontally_above_left_pred,
-            inline_horizontally_below_right_pred=inline_horizontally_below_right_pred,
-            inline_horizontally_below_left_pred=inline_horizontally_below_left_pred,
+            inline_diagonally_above_right_pred=inline_diagonally_above_right_pred,
+            inline_diagonally_above_left_pred=inline_diagonally_above_left_pred,
+            inline_diagonally_below_right_pred=inline_diagonally_below_right_pred,
+            inline_diagonally_below_left_pred=inline_diagonally_below_left_pred,
             inline_above_vertically_pred=inline_above_vertically_pred,
             inline_below_vertically_pred=inline_below_vertically_pred,
             inline_left_horizontally_pred=inline_left_horizontally_pred,
@@ -809,12 +995,23 @@ class Solver:
             inside_not_overlapping_pred=inside_not_overlapping_pred,
             top_left_bottom_right_diag_pred=top_left_bottom_right_diag_pred,
             bottom_left_top_right_diag_pred=bottom_left_top_right_diag_pred,
-            shape_colour_predicates=shape_colour_predicates,
+            # shape_colour_predicates=shape_colour_predicates,
             colour_predicates=colour_predicates,
             shape_size_predicates=shape_size_predicates,
-            inequality_predicates=inequality_predicates,
+            # inequality_predicates=inequality_predicates,
             shape_colour_count_predicates=shape_colour_count_predicates,
             grid_colour_count_predicates=grid_colour_count_predicates,
+            shape_group_predicates=shape_group_predicates,
+            shape_colour_pred=shape_colour_pred,
+            vertical_center_distance_more_than_pred=vertical_center_distance_more_than_pred,  # noqa: E501
+            vertical_center_distance_less_than_pred=vertical_center_distance_less_than_pred,  # noqa: E501
+            horizontal_center_distance_more_than_pred=horizontal_center_distance_more_than_pred,  # noqa: E501
+            horizontal_center_distance_less_than_pred=horizontal_center_distance_less_than_pred,  # noqa: E501
+            vertical_edge_distance_more_than_pred=vertical_edge_distance_more_than_pred,  # noqa: E501
+            vertical_edge_distance_less_than_pred=vertical_edge_distance_less_than_pred,  # noqa: E501
+            horizontal_edge_distance_more_than_pred=horizontal_edge_distance_more_than_pred,  # noqa: E501
+            horizontal_edge_distance_less_than_pred=horizontal_edge_distance_less_than_pred,  # noqa: E501
+            number_value_predicates=number_value_predicates,
         )
 
     def _create_examples(
@@ -907,20 +1104,24 @@ class Solver:
 
         return background_knowledge
 
+    def _get_max_num_arg_value(self) -> int:
+        max_num = 0
+        for output in self.outputs:
+            max_num = max(output.shape[0], output.shape[1], max_num)
+
+        return max_num
+
     @staticmethod
     def _extract_all_possible_colours(
-        inputs_shapes: List[List[Shape]], outputs_shapes: List[List[Shape]]
+        *list_list_shapes: List[List[Shape]],
     ) -> List[Colour]:
         possible_colours: set[Colour] = set()
-        for input_shapes in inputs_shapes:
-            for input_shape in input_shapes:
-                if input_shape.colour is not None:
-                    possible_colours.add(input_shape.colour)
 
-        for output_shapes in outputs_shapes:
-            for output_shape in output_shapes:
-                if output_shape.colour is not None:
-                    possible_colours.add(output_shape.colour)
+        for list_shapes in list_list_shapes:
+            for shapes in list_shapes:
+                for shape in shapes:
+                    if shape.colour is not None:
+                        possible_colours.add(shape.colour)
 
         return list(possible_colours)
 
@@ -947,6 +1148,17 @@ class Solver:
         return list(possible_sizes)
 
     @staticmethod
+    def _extract_all_possible_shape_groups(
+        inputs_shapes: List[List[Shape]],
+    ) -> List[str]:
+        possible_groups: set[str] = set()
+        for input_shapes in inputs_shapes:
+            for input_shape in input_shapes:
+                possible_groups = possible_groups.union(input_shape.shape_groups)
+
+        return list(possible_groups)
+
+    @staticmethod
     def _get_grid_colour_count(grid: NDArray[np.int16]):
         unique_elements = np.unique(grid)
         # remove 0
@@ -956,6 +1168,10 @@ class Solver:
     @staticmethod
     def _get_colour_eval_func(colour: Colour) -> Callable[..., bool]:
         return lambda colour_to_check: colour_to_check == colour
+
+    @staticmethod
+    def _get_number_eval_func(number: int) -> Callable[..., bool]:
+        return lambda number_to_check: number_to_check == number
 
     @staticmethod
     def _get_less_than_eval_func(value: int) -> Callable[..., bool]:
@@ -980,6 +1196,10 @@ class Solver:
     @staticmethod
     def _generate_grid_colour_count_pred_name(colour_count: int) -> str:
         return f"grid-colour-count-{colour_count}"
+
+    @staticmethod
+    def _generate_shape_group_pred_name(group: str) -> str:
+        return f"shape-group-{group}"
 
     @staticmethod
     def _generate_shape_name(example_number: int, is_input: bool, index: int) -> str:
