@@ -7,7 +7,9 @@ from arc_2024.data_management.data_manager import DataManager
 from arc_2024.solver import Solver
 
 
-@pytest.mark.parametrize("task_id", [("6e02f1e3"), ("6d75e8bb"), ("6e82a1ae")])
+@pytest.mark.parametrize(
+    "task_id", [("6e02f1e3"), ("6d75e8bb"), ("6e82a1ae"), ("6e19193c")]
+)
 def test_solver(task_id):
     data_manager = DataManager(
         Path(__file__).parent / "test_data",

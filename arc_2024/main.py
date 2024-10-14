@@ -29,7 +29,7 @@ def main():
 
     solver = Solver(inputs, outputs, test_inputs)
 
-    results = solver.solve(beam_width=5)
+    results = solver.solve(beam_width=3)
 
     for result, test_output in zip(results, test_outputs):
         correct_solution = np.array_equal(result, test_output)

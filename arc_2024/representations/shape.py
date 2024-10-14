@@ -120,9 +120,9 @@ class Shape:
         """
         Returns True if self is above other
         """
-        return self.is_above_i(other.centre[0])
+        return self.is_above_ij(other.centre[0], other.centre[1])
 
-    def is_above_i(self, i: Union[int, float]) -> bool:
+    def is_above_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """
         Returns True if self is above i
         """
@@ -132,9 +132,9 @@ class Shape:
         """
         Returns True if self is below other
         """
-        return self.is_below_i(other.centre[0])
+        return self.is_below_ij(other.centre[0], other.centre[1])
 
-    def is_below_i(self, i: Union[int, float]) -> bool:
+    def is_below_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """
         Returns True if self is below i
         """
@@ -144,9 +144,9 @@ class Shape:
         """
         Returns True if self is left of other
         """
-        return self.is_left_of_j(other.centre[1])
+        return self.is_left_of_ij(other.centre[0], other.centre[1])
 
-    def is_left_of_j(self, j: Union[int, float]) -> bool:
+    def is_left_of_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """
         Returns True if self is left of j
         """
@@ -156,9 +156,9 @@ class Shape:
         """
         Returns True if self is right of other
         """
-        return self.is_right_of_j(other.centre[1])
+        return self.is_right_of_ij(other.centre[0], other.centre[1])
 
-    def is_right_of_j(self, j: Union[int, float]) -> bool:
+    def is_right_of_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """
         Returns True if self is right of j
         """
@@ -246,8 +246,8 @@ class Shape:
         """
         Returns True if self is inline with i,j vertically and above
         """
-        return self.is_above_i(i) and not (
-            self.is_left_of_j(j) or self.is_right_of_j(j)
+        return self.is_above_ij(i, j) and not (
+            self.is_left_of_ij(i, j) or self.is_right_of_ij(i, j)
         )
 
     def is_inline_below_vertically(self, other: "Shape") -> bool:
@@ -264,8 +264,8 @@ class Shape:
         """
         Returns True if self is inline with i,j vertically and below
         """
-        return self.is_below_i(i) and not (
-            self.is_left_of_j(j) or self.is_right_of_j(j)
+        return self.is_below_ij(i, j) and not (
+            self.is_left_of_ij(i, j) or self.is_right_of_ij(i, j)
         )
 
     def is_inline_left_horizontally(self, other: "Shape") -> bool:
@@ -282,7 +282,9 @@ class Shape:
         """
         Returns True if self is inline with i,j horizontally and left
         """
-        return self.is_left_of_j(j) and not (self.is_above_i(i) or self.is_below_i(i))
+        return self.is_left_of_ij(i, j) and not (
+            self.is_above_ij(i, j) or self.is_below_ij(i, j)
+        )
 
     def is_inline_right_horizontally(self, other: "Shape") -> bool:
         """
@@ -298,7 +300,9 @@ class Shape:
         """
         Returns True if self is inline with i,j horizontally and right
         """
-        return self.is_right_of_j(j) and not (self.is_above_i(i) or self.is_below_i(i))
+        return self.is_right_of_ij(i, j) and not (
+            self.is_above_ij(i, j) or self.is_below_ij(i, j)
+        )
 
     def is_mask_overlapping(self, other: "Shape") -> bool:
         """
@@ -433,11 +437,11 @@ class Shape:
         """
         The horizontal distance between the edge and the point j
         """
-        if Shape.is_left_of_j(
-            self, j
+        if Shape.is_left_of_ij(
+            self, i, j
         ):  # call Shape here to make sure we don't rotate again for RotatableMaskShape
             return abs(self.right_most - j)
-        elif Shape.is_right_of_j(self, j):
+        elif Shape.is_right_of_ij(self, i, j):
             return abs(self.left_most - j)
         else:
             return 0
@@ -448,11 +452,11 @@ class Shape:
         """
         The vertical distance between the edge and the point i
         """
-        if Shape.is_above_i(
-            self, i
+        if Shape.is_above_ij(
+            self, i, j
         ):  # call Shape here to make sure we don't rotate again for RotatableMaskShape
             return abs(self.bottom_most - i)
-        elif Shape.is_below_i(self, i):
+        elif Shape.is_below_ij(self, i, j):
             return abs(self.top_most - i)
         else:
             return 0

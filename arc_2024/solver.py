@@ -425,7 +425,7 @@ class Solver:
         input_shape_name: str,
         predicates: Predicates,
     ) -> None:
-        if input_shape.is_above_i(output_i):
+        if input_shape.is_above_ij(output_i, output_j):
             background_knowledge[predicates.above_pred.name].add(
                 (
                     ex_number,
@@ -435,7 +435,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_below_i(output_i):
+        if input_shape.is_below_ij(output_i, output_j):
             background_knowledge[predicates.below_pred.name].add(
                 (
                     ex_number,
@@ -445,7 +445,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_left_of_j(output_j):
+        if input_shape.is_left_of_ij(output_i, output_j):
             background_knowledge[predicates.left_of_pred.name].add(
                 (
                     ex_number,
@@ -455,7 +455,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_right_of_j(output_j):
+        if input_shape.is_right_of_ij(output_i, output_j):
             background_knowledge[predicates.right_of_pred.name].add(
                 (
                     ex_number,
@@ -600,42 +600,42 @@ class Solver:
             if vertical_center_distance > number:
                 background_knowledge[
                     predicates.vertical_center_distance_more_than_pred.name
-                ].add((ex_number, output_i, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if vertical_center_distance < number:
                 background_knowledge[
                     predicates.vertical_center_distance_less_than_pred.name
-                ].add((ex_number, output_i, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if horizontal_center_distance > number:
                 background_knowledge[
                     predicates.horizontal_center_distance_more_than_pred.name
-                ].add((ex_number, output_j, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if horizontal_center_distance < number:
                 background_knowledge[
                     predicates.horizontal_center_distance_less_than_pred.name
-                ].add((ex_number, output_j, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if vertical_edge_distance > number:
                 background_knowledge[
                     predicates.vertical_edge_distance_more_than_pred.name
-                ].add((ex_number, output_i, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if vertical_edge_distance < number:
                 background_knowledge[
                     predicates.vertical_edge_distance_less_than_pred.name
-                ].add((ex_number, output_i, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if horizontal_edge_distance > number:
                 background_knowledge[
                     predicates.horizontal_edge_distance_more_than_pred.name
-                ].add((ex_number, output_j, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
             if horizontal_edge_distance < number:
                 background_knowledge[
                     predicates.horizontal_edge_distance_less_than_pred.name
-                ].add((ex_number, output_j, input_shape_name, number))
+                ].add((ex_number, output_i, output_j, input_shape_name, number))
 
         # if input_shape.shape_type == ShapeType.MIXED_COLOUR:
         #     background_knowledge[self._MIXED_COLOUR_SHAPE_PRED_NAME].add(
@@ -918,50 +918,50 @@ class Solver:
 
         vertical_center_distance_more_than_pred = Predicate(
             "vertical-center-distance-more-than",
-            4,
-            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         vertical_center_distance_less_than_pred = Predicate(
             "vertical-center-distance-less-than",
-            4,
-            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         horizontal_center_distance_more_than_pred = Predicate(
             "horizontal-center-distance-more-than",
-            4,
-            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         horizontal_center_distance_less_than_pred = Predicate(
             "horizontal-center-distance-less-than",
-            4,
-            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         vertical_edge_distance_more_than_pred = Predicate(
             "vertical-edge-distance-more-than",
-            4,
-            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         vertical_edge_distance_less_than_pred = Predicate(
             "vertical-edge-distance-less-than",
-            4,
-            [ex_num_arg, i_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         horizontal_edge_distance_more_than_pred = Predicate(
             "horizontal-edge-distance-more-than",
-            4,
-            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         horizontal_edge_distance_less_than_pred = Predicate(
             "horizontal-edge-distance-less-than",
-            4,
-            [ex_num_arg, j_arg, shape_arg, number_value_arg],
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
         number_value_predicates: list[RuleBasedPredicate] = []
