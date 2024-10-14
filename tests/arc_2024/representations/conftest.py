@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from arc_2024.representations.interpreter import Interpreter
+from arc_2024.representations.rotatable_mask_shape import RotatableMaskShape
 from arc_2024.representations.shape import Shape, ShapeType
 
 
@@ -221,12 +222,17 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
 
     # example 1
     mask = np.array([[7, 0], [7, 7]], dtype=np.int16)
+    rot_mask = mask.astype(bool)
 
     expected_input_shapes[0].append(
         Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
     expected_output_shapes[0].append(
         Shape((2, 1), mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
+    expected_input_shapes[0].append(
+        RotatableMaskShape((2, 1), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array([[7, 7], [0, 7]], dtype=np.int16)
@@ -236,6 +242,10 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
     )
     expected_output_shapes[0].append(
         Shape((4, 6), mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
+    expected_input_shapes[0].append(
+        RotatableMaskShape((4, 6), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array([[0, 7], [7, 0]], dtype=np.int16)
@@ -262,6 +272,10 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
         Shape((6, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
+    expected_input_shapes[1].append(
+        RotatableMaskShape((6, 3), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
     mask = np.array([[9, 9], [0, 9]], dtype=np.int16)
 
     expected_input_shapes[1].append(
@@ -269,6 +283,10 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
     )
     expected_output_shapes[1].append(
         Shape((1, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
+    expected_input_shapes[1].append(
+        RotatableMaskShape((1, 3), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     mask = np.array(
@@ -299,16 +317,28 @@ def create_test_case_6e19193c() -> InterpreterTestCase:
         Shape((6, 2), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
+    expected_test_input_shapes[0].append(
+        RotatableMaskShape((6, 2), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
     mask = np.array([[8, 8], [8, 0]], dtype=np.int16)
 
     expected_test_input_shapes[0].append(
         Shape((4, 7), mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
+    expected_test_input_shapes[0].append(
+        RotatableMaskShape((4, 7), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
     mask = np.array([[0, 8], [8, 8]], dtype=np.int16)
 
     expected_test_input_shapes[0].append(
         Shape((2, 3), mask, shape_type=ShapeType.SINGLE_COLOUR)
+    )
+
+    expected_test_input_shapes[0].append(
+        RotatableMaskShape((2, 3), mask, rot_mask, shape_type=ShapeType.SINGLE_COLOUR)
     )
 
     return InterpreterTestCase(

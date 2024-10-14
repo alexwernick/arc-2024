@@ -43,7 +43,7 @@ class RotatableMaskShape(Shape):
         if not isinstance(other, RotatableMaskShape):
             return False
         is_eq = super().__eq__(other)
-        mask_equal = np.array_equal(self.fixed_mask, other.fixed_mask)
+        mask_equal = np.array_equal(self._fixed_mask, other._fixed_mask)
         return is_eq and mask_equal
 
     def is_above_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:

@@ -55,9 +55,6 @@ class Interpreter:
 
         self._interpret_and_enrich_with_shape_types(inputs, test_inputs)
 
-        # inputs[0] = inputs[0][-2:]
-        # inputs[1] = inputs[1][-2:]
-
         return self.InterpretedShapes(inputs, outputs, test_inputs)
 
     @staticmethod
