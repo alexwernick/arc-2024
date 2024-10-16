@@ -208,7 +208,7 @@ class GridSizeSolver:
         shape_arg = ArgType(
             "shape",
             possible_values_fn=self._get_possible_shapes_func(),
-        )  # noqa: E501
+        )
 
         return self.ArgTypes(
             example_number_arg=example_number_arg,
