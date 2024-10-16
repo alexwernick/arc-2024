@@ -171,6 +171,10 @@ cython_debug/
 # Ignore everything in kaggle_data apart from dataset-metadata.json
 kaggle_data/*
 !kaggle_data/dataset-metadata.json
+!kaggle_data/__init__.py
 
 # Ignore temp data
 arc_2024/data/temp/
+
+# Ignore some files from cs50
+arc_2024/inductive_logic_programming/cs50/
