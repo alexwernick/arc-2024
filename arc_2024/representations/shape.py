@@ -496,12 +496,12 @@ class Shape:
         Returns if rotation of self's mask is equal to other's mask
         Does not care about colour
         """
-        rot0: NDArray[np.bool] = self_mask.astype(bool)
+        rot0: NDArray[np.bool_] = self_mask.astype(bool)
         rot90 = np.rot90(rot0)
         rot180 = np.rot90(rot90)
         rot270 = np.rot90(rot180)
 
-        other_bool: NDArray[np.bool] = other_mask.astype(bool)
+        other_bool: NDArray[np.bool_] = other_mask.astype(bool)
 
         return (
             np.array_equal(rot0, other_bool)
@@ -515,6 +515,6 @@ class Shape:
         """
         Returns if the mask is rotationally symmetric
         """
-        rot0: NDArray[np.bool] = self_mask.astype(bool)
+        rot0: NDArray[np.bool_] = self_mask.astype(bool)
         rot90 = np.rot90(rot0)
         return np.array_equal(rot0, rot90)

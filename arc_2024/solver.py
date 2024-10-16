@@ -13,7 +13,6 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 )
 from arc_2024.inductive_logic_programming.FOIL import FOIL
 from arc_2024.representations.colour import Colour
-from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
 
@@ -22,6 +21,10 @@ class Solver:
     inputs: list[NDArray[np.int16]]
     outputs: list[NDArray[np.int16]]
     test_inputs: list[NDArray[np.int16]]
+    empty_test_outputs: list[NDArray[np.int16]]
+    inputs_shapes: list[list[Shape]]
+    outputs_shapes: list[list[Shape]]
+    test_inputs_shapes: list[list[Shape]]
 
     class ArgTypes(NamedTuple):
         colour_type_arg: ArgType
@@ -105,6 +108,10 @@ class Solver:
         inputs: list[NDArray[np.int16]],
         outputs: list[NDArray[np.int16]],
         test_inputs: list[NDArray[np.int16]],
+        empty_test_outputs: list[NDArray[np.int16]],
+        inputs_shapes: list[list[Shape]],
+        outputs_shapes: list[list[Shape]],
+        test_inputs_shapes: list[list[Shape]],
     ):
         for arr in inputs + outputs + test_inputs:
             if arr.ndim != 2:
@@ -115,60 +122,42 @@ class Solver:
         self.inputs = inputs
         self.outputs = outputs
         self.test_inputs = test_inputs
+        self.empty_test_outputs = empty_test_outputs
+        self.inputs_shapes = inputs_shapes
+        self.outputs_shapes = outputs_shapes
+        self.test_inputs_shapes = test_inputs_shapes
 
-    def solve(self, beam_width: int = 1) -> tuple[bool, list[NDArray[np.int16]]]:
+    def solve(self, beam_width: int = 1) -> list[NDArray[np.int16]]:
         """
         This function solves the task.
         """
-        interpreter = Interpreter(self.inputs, self.outputs, self.test_inputs)
-        interpretations = interpreter.interpret_shapes()
+        # We prepare data for the FOIL algorithm
+        possible_colours: list[Colour] = self._extract_all_possible_colours(
+            self.inputs_shapes, self.outputs_shapes
+        )  # noqa: E501
 
-        for interpretation in interpretations:
-            try:
-                (
-                    inputs_shapes,
-                    outputs_shapes,
-                    test_inputs_shapes,
-                    _,
-                ) = interpretation
+        arg_types = self._create_args_types(possible_colours)
+        variables = self._create_variables(arg_types)
+        target_literal = self._create_target_literal(arg_types, variables)
+        predicates = self._create_predicates(arg_types, possible_colours)
+        predicate_list = predicates.to_list()
+        examples = self._create_examples(possible_colours, variables)
 
-                # We prepare data for the FOIL algorithm
-                possible_colours: list[Colour] = self._extract_all_possible_colours(
-                    inputs_shapes, outputs_shapes
-                )  # noqa: E501
+        # Background facts for predicates
+        background_knowledge = self._create_background_knowledge(predicates)
 
-                arg_types = self._create_args_types(
-                    possible_colours, inputs_shapes, outputs_shapes
-                )
-                variables = self._create_variables(arg_types)
-                target_literal = self._create_target_literal(arg_types, variables)
-                predicates = self._create_predicates(
-                    arg_types, possible_colours, inputs_shapes
-                )
-                predicate_list = predicates.to_list()
-                examples = self._create_examples(possible_colours, variables)
+        # Run FOIL
+        foil = FOIL(
+            target_literal,
+            predicate_list,
+            background_knowledge,
+            beam_width=beam_width,
+            max_clause_length=4,
+        )
+        foil.fit(examples)
 
-                # Background facts for predicates
-                background_knowledge = self._create_background_knowledge(
-                    predicates, inputs_shapes, test_inputs_shapes
-                )
-
-                foil = FOIL(
-                    target_literal,
-                    predicate_list,
-                    background_knowledge,
-                    beam_width=beam_width,
-                )
-                foil.fit(examples)
-
-                result = self._calculate_results(
-                    foil, possible_colours, variables, test_inputs_shapes
-                )
-                return (True, result)
-            except Exception as e:
-                print(f"Error: {e}")
-
-        return (False, [])
+        # Calculate results
+        return self._calculate_results(foil, possible_colours, variables)
 
     def _extract_all_possible_colour_counts_for_grids(self) -> List[int]:
         possible_counts: set[int] = set()
@@ -178,13 +167,15 @@ class Solver:
 
         return list(possible_counts)
 
-    # We make and assumption here that the input and output
-    # grid shapes are the same size. We will need to learn
-    # use as well for other puzzles
     def _get_possible_i_values_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
         for example_number, output in enumerate(self.outputs):
             possible_values[example_number] = list(range(output.shape[0]))
+
+        for example_number, output in enumerate(self.empty_test_outputs):
+            possible_values[example_number + self._TEST_EX_NUMBER_OFFSET] = list(
+                range(output.shape[0])
+            )
 
         def get_possible_i_values(example: dict[str, Any]) -> list:
             # V1 is set as example number
@@ -198,6 +189,11 @@ class Solver:
         for example_number, output in enumerate(self.outputs):
             possible_values[example_number] = list(range(output.shape[1]))
 
+        for example_number, output in enumerate(self.empty_test_outputs):
+            possible_values[example_number + self._TEST_EX_NUMBER_OFFSET] = list(
+                range(output.shape[1])
+            )
+
         def get_possible_j_values(example: dict[str, Any]) -> list:
             # V1 is set as example number
             example_number = example["V1"]
@@ -208,14 +204,13 @@ class Solver:
     def _get_possible_number_values_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
         for example_number, output in enumerate(self.outputs):
-            # we just take the max of the input and output cords
+            # we just take the max of the x and y cords
             # this will create unnecessary values for non square grids
             max_value = max(output.shape[0], output.shape[1])
             possible_values[example_number] = list(range(max_value))
 
-        # TODO: Need to change once we know output grid size
-        for example_number, output in enumerate(self.test_inputs):
-            # we just take the max of the input and output cords
+        for example_number, output in enumerate(self.empty_test_outputs):
+            # we just take the max of the x and y cords
             # this will create unnecessary values for non square grids
             max_value = max(output.shape[0], output.shape[1])
             possible_values[example_number + self._TEST_EX_NUMBER_OFFSET] = list(
@@ -229,14 +224,12 @@ class Solver:
 
         return get_possible_mumber_values
 
-    def _get_possible_shapes_func(
-        self, inputs_shapes: List[List[Shape]], outputs_shapes: List[List[Shape]]
-    ) -> Callable[[dict[str, Any]], list]:
+    def _get_possible_shapes_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
         for example_number, _ in enumerate(self.inputs):
             input_shapes = [
                 self._generate_shape_name(example_number, True, i)
-                for i in range(len(inputs_shapes[example_number]))
+                for i in range(len(self.inputs_shapes[example_number]))
             ]
             output_shapes: list[str] = []
             # output_shapes = [
@@ -244,6 +237,22 @@ class Solver:
             #     for i in range(len(outputs_shapes[example_number]))
             # ]
             possible_values[example_number] = input_shapes + output_shapes
+
+        for example_number, _ in enumerate(self.test_inputs):
+            input_shapes = [
+                self._generate_shape_name(
+                    example_number + self._TEST_EX_NUMBER_OFFSET, True, i
+                )
+                for i in range(len(self.test_inputs_shapes[example_number]))
+            ]
+            output_shapes = []
+            # output_shapes = [
+            #     self._generate_shape_name(example_number + self._TEST_EX_NUMBER_OFFSET, False, i) # noqa: E501
+            #     for i in range(len(outputs_shapes[example_number]))
+            # ]
+            possible_values[example_number + self._TEST_EX_NUMBER_OFFSET] = (
+                input_shapes + output_shapes
+            )
 
         def get_possible_shapes(example: dict[str, Any]) -> list:
             # V1 is set as example number
@@ -253,41 +262,37 @@ class Solver:
         return get_possible_shapes
 
     def _get_top_left_bottom_right_diag_eval_func(self) -> Callable[..., bool]:
-        # we assume input grids size equal outputs
-        test_number_offset = 100
         is_square: dict[int, bool] = {}
-        for ex, input_grid in enumerate(self.inputs):
-            if input_grid.shape[0] == input_grid.shape[1]:
+        for ex, output_grid in enumerate(self.outputs):
+            if output_grid.shape[0] == output_grid.shape[1]:
                 is_square[ex] = True
             else:
                 is_square[ex] = False
 
-        for ex, input_grid in enumerate(self.test_inputs):
-            if input_grid.shape[0] == input_grid.shape[1]:
-                is_square[ex + test_number_offset] = True
+        for ex, output_grid in enumerate(self.empty_test_outputs):
+            if output_grid.shape[0] == output_grid.shape[1]:
+                is_square[ex + self._TEST_EX_NUMBER_OFFSET] = True
             else:
-                is_square[ex + test_number_offset] = False
+                is_square[ex + self._TEST_EX_NUMBER_OFFSET] = False
 
         return lambda ex_number, i, j: is_square[ex_number] and i == j
 
     def _get_bottom_left_top_right_diag_eval_func(self) -> Callable[..., bool]:
-        # we assume input grids size equal outputs
-        test_number_offset = 100
         is_square: dict[int, bool] = {}
         heights: dict[int, int] = {}
-        for ex, input_grid in enumerate(self.inputs):
-            heights[ex] = input_grid.shape[0]
-            if input_grid.shape[0] == input_grid.shape[1]:
+        for ex, output_grid in enumerate(self.outputs):
+            heights[ex] = output_grid.shape[0]
+            if output_grid.shape[0] == output_grid.shape[1]:
                 is_square[ex] = True
             else:
                 is_square[ex] = False
 
-        for ex, input_grid in enumerate(self.test_inputs):
-            heights[ex + test_number_offset] = input_grid.shape[0]
-            if input_grid.shape[0] == input_grid.shape[1]:
-                is_square[ex + test_number_offset] = True
+        for ex, output_grid in enumerate(self.empty_test_outputs):
+            heights[ex + self._TEST_EX_NUMBER_OFFSET] = output_grid.shape[0]
+            if output_grid.shape[0] == output_grid.shape[1]:
+                is_square[ex + self._TEST_EX_NUMBER_OFFSET] = True
             else:
-                is_square[ex + test_number_offset] = False
+                is_square[ex + self._TEST_EX_NUMBER_OFFSET] = False
 
         return (
             lambda ex_number, i, j: is_square[ex_number]
@@ -299,22 +304,21 @@ class Solver:
         foil: FOIL,
         possible_colours: list[Colour],
         variables: Variables,
-        test_inputs_shapes: list[list[Shape]],
     ) -> List[NDArray[np.int16]]:
         # We extend possible colours with any in test inputs
         more_possible_colours: list[Colour] = self._extract_all_possible_colours(
-            test_inputs_shapes
-        )  # noqa: E501
+            self.test_inputs_shapes
+        )
         possible_colours.extend(more_possible_colours)
         possible_colours = list(set(possible_colours))
 
         # we iteratively populate the test outputs
         test_outputs: List[NDArray[np.int16]] = []
-        for test_number, input_grid in enumerate(self.test_inputs):
+        for test_number, output_grid in enumerate(self.empty_test_outputs):
             offset_test_number = test_number + self._TEST_EX_NUMBER_OFFSET
-            test_output = np.zeros_like(input_grid)
-            for i in range(input_grid.shape[0]):
-                for j in range(input_grid.shape[1]):
+            test_output = np.zeros_like(output_grid)
+            for i in range(output_grid.shape[0]):
+                for j in range(output_grid.shape[1]):
                     for possible_colour in possible_colours:
                         if foil.predict(
                             {
@@ -684,22 +688,20 @@ class Solver:
     def _create_args_types(
         self,
         possible_colours: list[Colour],
-        inputs_shapes: list[list[Shape]],
-        outputs_shapes: list[list[Shape]],
     ) -> ArgTypes:
         # args in target predicate & body predicates
         colour_type_arg = ArgType("colour", possible_colours)
-        example_number_arg = ArgType("example_number", list(range(len(inputs_shapes))))
+        example_number_arg = ArgType(
+            "example_number", list(range(len(self.inputs_shapes)))
+        )
         i_arg = ArgType("i", possible_values_fn=self._get_possible_i_values_func())
         j_arg = ArgType("j", possible_values_fn=self._get_possible_j_values_func())
 
         # args not in target but in possible body predicates
         shape_arg = ArgType(
             "shape",
-            possible_values_fn=self._get_possible_shapes_func(
-                inputs_shapes, outputs_shapes
-            ),
-        )  # noqa: E501
+            possible_values_fn=self._get_possible_shapes_func(),
+        )
 
         number_value_arg = ArgType(
             "number_value", possible_values_fn=self._get_possible_number_values_func()
@@ -744,7 +746,6 @@ class Solver:
         self,
         arg_types: ArgTypes,
         possible_colours: list[Colour],
-        inputs_shapes: list[list[Shape]],
     ) -> Predicates:
         ex_num_arg = arg_types.example_number_arg
         colour_type_arg = arg_types.colour_type_arg
@@ -858,7 +859,7 @@ class Solver:
             )
 
         shape_size_predicates: list[Predicate] = []
-        for size in self._extract_all_possible_sizes_for_shapes(inputs_shapes):
+        for size in self._extract_all_possible_sizes_for_shapes(self.inputs_shapes):
             shape_size_predicates.append(
                 Predicate(
                     self._generate_shape_size_pred_name(size),
@@ -921,7 +922,7 @@ class Solver:
 
         shape_colour_count_predicates: list[Predicate] = []
         for possible_count in self._extract_all_possible_colour_counts_for_shapes(
-            inputs_shapes
+            self.inputs_shapes
         ):
             shape_colour_count_predicates.append(
                 Predicate(
@@ -942,7 +943,7 @@ class Solver:
             )
 
         shape_group_predicates: list[Predicate] = []
-        for shape_group in self._extract_all_possible_shape_groups(inputs_shapes):
+        for shape_group in self._extract_all_possible_shape_groups(self.inputs_shapes):
             shape_group_pred = Predicate(
                 self._generate_shape_group_pred_name(shape_group),
                 2,
@@ -1158,12 +1159,8 @@ class Solver:
     def _create_background_knowledge(
         self,
         predicates: Predicates,
-        inputs_shapes: list[list[Shape]],
-        test_inputs_shapes: list[list[Shape]],
     ) -> BackgroundKnowledgeType:
         background_knowledge: Solver.BackgroundKnowledgeType = defaultdict(set)
-        # for predicate in predicates.to_list():
-        #     background_knowledge[predicate.name] = set()
 
         # add grid bk
         self._append_background_knowledge_for_grids(
@@ -1172,7 +1169,7 @@ class Solver:
 
         # bk relating input shapes and i,j outputs
         self._append_background_knowledge_for_shapes(
-            background_knowledge, self.outputs, inputs_shapes, predicates
+            background_knowledge, self.outputs, self.inputs_shapes, predicates
         )
 
         # Raw input bk
@@ -1191,12 +1188,10 @@ class Solver:
         )
 
         # bk relating shapes
-        # We assume here input and output grid are the same size
-        # so we pass the input grid to the output paramater
         self._append_background_knowledge_for_shapes(
             background_knowledge,
-            self.test_inputs,
-            test_inputs_shapes,
+            self.empty_test_outputs,
+            self.test_inputs_shapes,
             predicates,
             ex_number_offset=self._TEST_EX_NUMBER_OFFSET,
         )
@@ -1293,14 +1288,13 @@ class Solver:
 
     def _get_grid_bottom_more_than_eval_func(self) -> Callable[..., bool]:
         output_grid_heights = {}
-        for ex, output_grids in enumerate(self.outputs):
-            output_grid_heights[ex] = output_grids.shape[0]
+        for ex, output_grid in enumerate(self.outputs):
+            output_grid_heights[ex] = output_grid.shape[0]
 
-        # TODO: we need to change this once we know output grid size
-        for ex, test_input_grids in enumerate(self.test_inputs):
+        for ex, test_output_grid in enumerate(self.empty_test_outputs):
             output_grid_heights[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[0]
+            ] = test_output_grid.shape[0]
 
         return (
             lambda ex_number, i, value: output_grid_heights[ex_number] - i - 1 > value
@@ -1312,14 +1306,13 @@ class Solver:
 
     def _get_grid_bottom_less_than_eval_func(self) -> Callable[..., bool]:
         output_grid_heights = {}
-        for ex, output_grids in enumerate(self.outputs):
-            output_grid_heights[ex] = output_grids.shape[0]
+        for ex, output_grid in enumerate(self.outputs):
+            output_grid_heights[ex] = output_grid.shape[0]
 
-        # TODO: we need to change this once we know output grid size
-        for ex, test_input_grids in enumerate(self.test_inputs):
+        for ex, test_output_grid in enumerate(self.empty_test_outputs):
             output_grid_heights[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[0]
+            ] = test_output_grid.shape[0]
 
         return (
             lambda ex_number, i, value: output_grid_heights[ex_number] - i - 1 < value
@@ -1331,14 +1324,13 @@ class Solver:
 
     def _get_grid_right_more_than_eval_func(self) -> Callable[..., bool]:
         output_grid_widths = {}
-        for ex, output_grids in enumerate(self.outputs):
-            output_grid_widths[ex] = output_grids.shape[1]
+        for ex, output_grid in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grid.shape[1]
 
-        # TODO: we need to change this once we know output grid size
-        for ex, test_input_grids in enumerate(self.test_inputs):
+        for ex, test_output_grid in enumerate(self.empty_test_outputs):
             output_grid_widths[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[1]
+            ] = test_output_grid.shape[1]
 
         return lambda ex_number, j, value: output_grid_widths[ex_number] - j - 1 > value
 
@@ -1348,32 +1340,30 @@ class Solver:
 
     def _get_grid_right_less_than_eval_func(self) -> Callable[..., bool]:
         output_grid_widths = {}
-        for ex, output_grids in enumerate(self.outputs):
-            output_grid_widths[ex] = output_grids.shape[1]
+        for ex, output_grid in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grid.shape[1]
 
-        # TODO: we need to change this once we know output grid size
-        for ex, test_input_grids in enumerate(self.test_inputs):
+        for ex, test_output_grid in enumerate(self.empty_test_outputs):
             output_grid_widths[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[1]
+            ] = test_output_grid.shape[1]
 
         return lambda ex_number, j, value: output_grid_widths[ex_number] - j - 1 < value
 
     def _get_touching_grid_edge_eval_func(self) -> Callable[..., bool]:
         output_grid_widths = {}
         output_grid_heights = {}
-        for ex, output_grids in enumerate(self.outputs):
-            output_grid_widths[ex] = output_grids.shape[1]
-            output_grid_heights[ex] = output_grids.shape[0]
+        for ex, output_grid in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grid.shape[1]
+            output_grid_heights[ex] = output_grid.shape[0]
 
-        # TODO: we need to change this once we know output grid size
-        for ex, test_input_grids in enumerate(self.test_inputs):
+        for ex, test_output_grid in enumerate(self.empty_test_outputs):
             output_grid_widths[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[1]
+            ] = test_output_grid.shape[1]
             output_grid_heights[
                 ex + self._TEST_EX_NUMBER_OFFSET
-            ] = test_input_grids.shape[0]
+            ] = test_output_grid.shape[0]
 
         return (
             lambda ex_number, i, j: i == 0

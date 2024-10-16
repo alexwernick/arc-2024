@@ -423,7 +423,7 @@ class Interpreter:
                 and shape.colour is not None
             ]
             # sort here prior to groupby
-            single_colour_shape_colours.sort()
+            single_colour_shape_colours.sort(key=lambda colour: colour.value)
             group_colour_counts = {
                 colour: len(list(colours))
                 for colour, colours in itertools.groupby(

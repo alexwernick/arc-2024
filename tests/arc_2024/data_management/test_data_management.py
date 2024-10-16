@@ -238,3 +238,224 @@ def test_get_task_data(data_manager: DataManager):
     assert_lists_of_arrays_equal(outputs, expected_outputs)
     assert_lists_of_arrays_equal(test_inputs, expected_test_inputs)
     assert_lists_of_arrays_equal(test_outputs, expected_test_outputs)
+
+
+def test_get_task_data_with_empty_test_output(data_manager: DataManager):
+    # Prepare test data
+    file_name = "sample_challenges_2.json"
+    data_manager.split_tasks_to_individual_files(file_name)
+
+    # Call the get_task_data method
+    inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data("007bbfb7")
+
+    # Check if the task data is as expected
+    expected_inputs: List[NDArray[np.int16]] = []
+    expected_outputs: List[NDArray[np.int16]] = []
+    expected_test_inputs: List[NDArray[np.int16]] = []
+    expected_test_outputs: List[NDArray[np.int16]] = []
+
+    expected_inputs.append(
+        np.array(
+            [[0, 7, 7], [7, 7, 7], [0, 7, 7]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[4, 0, 4], [0, 0, 0], [0, 4, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[0, 0, 0], [0, 0, 2], [2, 0, 2]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[6, 6, 0], [6, 0, 0], [0, 6, 6]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_inputs.append(
+        np.array(
+            [[2, 2, 2], [0, 0, 0], [0, 2, 2]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 7, 7, 7, 7, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 7, 7, 0, 7, 7, 0, 7, 7],
+                [7, 7, 7, 7, 7, 7, 7, 7, 7],
+                [0, 7, 7, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+                [0, 0, 0, 7, 7, 7, 7, 7, 7],
+                [0, 0, 0, 0, 7, 7, 0, 7, 7],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [4, 0, 4, 0, 0, 0, 4, 0, 4],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 4, 0, 0, 0, 0, 0, 4, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 4, 0, 4, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 4, 0, 0, 0, 0],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 2],
+                [0, 0, 0, 0, 0, 0, 2, 0, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 2, 0, 0, 0, 0, 0, 2],
+                [2, 0, 2, 0, 0, 0, 2, 0, 2],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [6, 6, 0, 6, 6, 0, 0, 0, 0],
+                [6, 0, 0, 6, 0, 0, 0, 0, 0],
+                [0, 6, 6, 0, 6, 6, 0, 0, 0],
+                [6, 6, 0, 0, 0, 0, 0, 0, 0],
+                [6, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 6, 6, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 6, 6, 0, 6, 6, 0],
+                [0, 0, 0, 6, 0, 0, 6, 0, 0],
+                [0, 0, 0, 0, 6, 6, 0, 6, 6],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_outputs.append(
+        np.array(
+            [
+                [2, 2, 2, 2, 2, 2, 2, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 2, 2, 0, 2, 2, 0, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 2, 2, 2, 2, 2, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 2, 2, 0, 2, 2],
+            ],
+            dtype=np.int16,
+        )
+    )
+
+    expected_test_inputs.append(
+        np.array(
+            [[7, 0, 7], [7, 0, 7], [7, 7, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    expected_test_inputs.append(
+        np.array(
+            [[7, 0, 7], [7, 0, 7], [7, 7, 0]],
+            dtype=np.int16,
+        )
+    )
+
+    def assert_lists_of_arrays_equal(list1, list2):
+        assert len(list1) == len(list2), "Lists have different lengths"
+        for arr1, arr2 in zip(list1, list2):
+            npt.assert_array_equal(arr1, arr2)
+
+    assert_lists_of_arrays_equal(inputs, expected_inputs)
+    assert_lists_of_arrays_equal(outputs, expected_outputs)
+    assert_lists_of_arrays_equal(test_inputs, expected_test_inputs)
+    assert_lists_of_arrays_equal(test_outputs, expected_test_outputs)
+
+
+def test_create_valid_empty_solution_file(data_manager: DataManager):
+    # Prepare test data
+    file_name = "sample_challenges_2.json"
+    data_manager.split_tasks_to_individual_files(file_name)
+
+    # Call the create_valid_empty_solution_file method
+    file_name = "sample_solutions.json"
+    data_manager.create_valid_empty_solution_file(file_name)
+
+    # Check if the solution file was created
+    assert os.path.exists(Path(data_manager._output_dir) / file_name)
+    with open(Path(data_manager._output_dir) / file_name, "r") as file:
+        data = json.load(file)
+        assert data == {
+            "007bbfb7": [
+                {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]},
+                {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]},
+            ],
+            "00d62c1b": [
+                {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]}
+            ],
+        }
+
+
+def test_update_solution_file(data_manager: DataManager):
+    # Prepare test data
+    file_name = "sample_challenges.json"
+    data_manager.split_tasks_to_individual_files(file_name)
+    task_id = "007bbfb7"
+    test_outputs = [
+        np.array([[1, 0, 1], [1, 0, 1], [1, 1, 0]], dtype=np.int16),
+        np.array([[1, 2, 1], [1, 2, 1], [1, 1, 2]], dtype=np.int16),
+    ]
+
+    # Create empty solution file
+    file_name = "sample_solutions_update.json"
+    data_manager.create_valid_empty_solution_file(file_name)
+
+    # Call the update_solution_file method
+    data_manager.update_solution_file(file_name, task_id, test_outputs)
+
+    # Check if the solution file was updated
+    assert os.path.exists(Path(data_manager._output_dir) / file_name)
+    with open(Path(data_manager._output_dir) / file_name, "r") as file:
+        data = json.load(file)
+        assert data == {
+            "007bbfb7": [
+                {
+                    "attempt_1": [[1, 0, 1], [1, 0, 1], [1, 1, 0]],
+                    "attempt_2": [[1, 0, 1], [1, 0, 1], [1, 1, 0]],
+                },
+                {
+                    "attempt_1": [[1, 2, 1], [1, 2, 1], [1, 1, 2]],
+                    "attempt_2": [[1, 2, 1], [1, 2, 1], [1, 1, 2]],
+                },
+            ],
+            "00d62c1b": [
+                {"attempt_1": [[0, 0], [0, 0]], "attempt_2": [[0, 0], [0, 0]]}
+            ],
+        }

@@ -10,20 +10,20 @@ RelationshipType = Callable[["Shape"], bool]
 
 
 class RotatableMaskShape(Shape):
-    _fixed_mask: NDArray[np.bool]
+    _fixed_mask: NDArray[np.bool_]
     _rotate_ij: Callable[[float, float, float, float], Tuple[float, float]]
 
     def __init__(
         self,
         position: Tuple[int, int],
         mask: NDArray[np.int16],
-        fixed_mask: NDArray[np.bool],
+        fixed_mask: NDArray[np.bool_],
         shape_type: ShapeType,
     ):
         super().__init__(position, mask, shape_type)
         self._fixed_mask = fixed_mask
 
-        rot0: NDArray[np.bool] = self.mask.astype(bool)
+        rot0: NDArray[np.bool_] = self.mask.astype(bool)
         rot90 = np.rot90(rot0)
         rot180 = np.rot90(rot90)
         rot270 = np.rot90(rot180)
