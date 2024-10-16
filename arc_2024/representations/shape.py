@@ -107,6 +107,16 @@ class Shape:
             return array_equal and colours_equal and position_equal and type_equal
         return False
 
+    def __hash__(self):
+        return hash(
+            (
+                self.position,
+                self.mask.tobytes(),
+                self.shape_type,
+                tuple(sorted(self.colours, key=lambda colour: colour.value)),
+            )
+        )
+
     def __repr__(self):
         return f"Shape({self.colour}, {self.position}, {self.mask})"
 

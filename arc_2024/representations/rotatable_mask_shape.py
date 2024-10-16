@@ -46,6 +46,9 @@ class RotatableMaskShape(Shape):
         mask_equal = np.array_equal(self._fixed_mask, other._fixed_mask)
         return is_eq and mask_equal
 
+    def __hash__(self):
+        return hash((self._fixed_mask, super().__hash__()))
+
     def is_above_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """
         Returns True if self is above i

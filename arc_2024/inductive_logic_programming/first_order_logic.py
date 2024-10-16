@@ -355,42 +355,65 @@ class Clause:
                 # Should not happen
                 return []
 
+        possible_bindings = []
         # If it's rule based we use rule and don't evaluate background knowledge
         if isinstance(literal.predicate, RuleBasedPredicate):
-            if None in args:
-                raise ValueError("Rule based predicates can't have unbound variables")
-
-            if literal.predicate.evaluate(*args):
-                return [{}]
-            return []
-
-        # Retrieve facts for the predicate
-        predicate_facts = background_knowledge.get(literal.predicate.name, set())
-
-        possible_bindings = []
-
-        for fact in predicate_facts:
-            # Check if the fact matches the known assignments
-            match = True
-            new_bindings = {}
-
-            for arg_val, fact_val, arg in zip(args, fact, literal.args):
+            extended_args = [args.copy()]
+            for i, (arg_val, arg) in enumerate(zip(args, literal.args)):
                 if arg_val is None:
-                    # Unbound variable; propose a new binding
                     if isinstance(arg, Variable):
-                        new_bindings[arg.name] = fact_val
+                        new_extended_args = []
+                        for ex_arg in extended_args:
+                            for possible_val in arg.arg_type.possible_values(
+                                variable_assignments
+                            ):
+                                copy = ex_arg.copy()
+                                copy[i] = possible_val
+                                new_extended_args.append(copy)
+                        extended_args = new_extended_args
                     else:
                         raise Exception(
                             "Unexpected non-varable arg in unbound variable position"
                         )
 
-                elif arg_val != fact_val:
-                    # Known variable assignment does not match the fact's value
-                    match = False
-                    break  # No need to check further
+            for ex_args in extended_args:
+                new_bindings = {}
+                if literal.predicate.evaluate(*ex_args):
+                    for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
+                        if isinstance(arg, Variable):
+                            if arg_val is None:
+                                new_bindings[arg.name] = ex_arg
+                        else:
+                            raise Exception(
+                                "Unexpected non-varable arg in unbound variable position"  # noqa: E501
+                            )
+                    possible_bindings.append(new_bindings)
+        else:
+            # Retrieve facts for the predicate
+            predicate_facts = background_knowledge.get(literal.predicate.name, set())
 
-            if match:
-                possible_bindings.append(new_bindings)
+            for fact in predicate_facts:
+                # Check if the fact matches the known assignments
+                match = True
+                new_bindings = {}
+
+                for arg_val, fact_val, arg in zip(args, fact, literal.args):
+                    if arg_val is None:
+                        # Unbound variable; propose a new binding
+                        if isinstance(arg, Variable):
+                            new_bindings[arg.name] = fact_val
+                        else:
+                            raise Exception(
+                                "Unexpected non-varable arg in unbound variable position"  # noqa: E501
+                            )
+
+                    elif arg_val != fact_val:
+                        # Known variable assignment does not match the fact's value
+                        match = False
+                        break  # No need to check further
+
+                if match:
+                    possible_bindings.append(new_bindings)
 
         return possible_bindings
 

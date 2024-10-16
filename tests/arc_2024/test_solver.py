@@ -8,7 +8,7 @@ from arc_2024.solver import Solver
 
 
 @pytest.mark.parametrize(
-    "task_id", [("6e02f1e3"), ("6d75e8bb"), ("6e82a1ae"), ("6e19193c")]
+    "task_id", [("6e02f1e3"), ("6d75e8bb"), ("6e82a1ae"), ("6e19193c"), ("6f8cd79b")]
 )
 def test_solver(task_id):
     data_manager = DataManager(
@@ -23,5 +23,7 @@ def test_solver(task_id):
 
     results = solver.solve(beam_width=2)
 
-    for result, test_output in zip(results, test_outputs):
+    assert results[0]
+
+    for result, test_output in zip(results[1], test_outputs):
         assert np.array_equal(result, test_output)

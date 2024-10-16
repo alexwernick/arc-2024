@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+
+import numpy as np
 import pytest
 
 from arc_2024.representations.colour import Colour
@@ -5,11 +9,31 @@ from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape
 
 
+def create_interpreter_for_task(task_id: str) -> Interpreter:
+    file_path = Path(__file__).parent / f"test_data/{task_id}.json"
+    with open(str(file_path), "r") as file:
+        data = json.load(file)
+
+    inputs = [np.array(item["input"]) for item in data["train"]]
+    outputs = [np.array(item["output"]) for item in data["train"]]
+    test_inputs = [np.array(item["input"]) for item in data["test"]]
+    return Interpreter(inputs, outputs, test_inputs)
+
+
 def test_interprets_all_individual_pixels_of_colour(interpreter: Interpreter):
     # Exercise code
-    interpreted_shapes = interpreter.interpret_shapes()
+    interpretations = interpreter.interpret_shapes()
+    interpreted_shapes = next(
+        (
+            x
+            for x in interpretations
+            if x.interpret_type == Interpreter.InterpretType.LOCAL_SEARCH
+        ),
+        None,
+    )
 
     # Verify code
+    assert interpreted_shapes is not None
     inputs_shapes = interpreted_shapes.inputs
     outputs_shapes = interpreted_shapes.outputs
     test_inputs_shapes = interpreted_shapes.test_inputs
@@ -57,9 +81,18 @@ def test_interprets_all_shapes(interpreter_dictiorary, task_id):
     ].expected_test_input_shapes
 
     # Exercise code
-    interpreted_shapes = interpreter.interpret_shapes()
+    interpretations = interpreter.interpret_shapes()
+    interpreted_shapes = next(
+        (
+            x
+            for x in interpretations
+            if x.interpret_type == Interpreter.InterpretType.LOCAL_SEARCH
+        ),
+        None,
+    )
 
     # Verify code
+    assert interpreted_shapes is not None
     inputs_shapes = interpreted_shapes.inputs
     outputs_shapes = interpreted_shapes.outputs
     test_inputs_shapes = interpreted_shapes.test_inputs
@@ -80,3 +113,172 @@ def test_interprets_all_shapes(interpreter_dictiorary, task_id):
     check_shapes(inputs_shapes, expected_input_shapes)
     check_shapes(outputs_shapes, expected_output_shapes)
     check_shapes(test_inputs_shapes, expected_test_input_shapes)
+
+
+def test_interprets_colour_count_shape_groups(interpreter: Interpreter):
+    interpreter = create_interpreter_for_task("0b148d64")
+    # Exercise code
+    interpretations = interpreter.interpret_shapes()
+    interpreted_shapes = next(
+        (
+            x
+            for x in interpretations
+            if x.interpret_type == Interpreter.InterpretType.SEPERATOR
+        ),
+        None,
+    )
+
+    # Verify code
+    assert interpreted_shapes is not None
+    inputs_shapes = interpreted_shapes.inputs
+    test_inputs_shapes = interpreted_shapes.test_inputs
+
+    for shape in inputs_shapes[0]:
+        if shape.shape_type.name != "SINGLE_COLOUR":
+            continue
+
+        if shape.colour == Colour(8):
+            assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
+        elif shape.colour == Colour(2):
+            assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
+
+    for shape in inputs_shapes[1]:
+        if shape.shape_type.name != "SINGLE_COLOUR":
+            continue
+
+        if shape.colour == Colour(2):
+            assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
+        elif shape.colour == Colour(3):
+            assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
+
+    for shape in inputs_shapes[2]:
+        if shape.shape_type.name != "SINGLE_COLOUR":
+            continue
+
+        if shape.colour == Colour(1):
+            assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
+        elif shape.colour == Colour(4):
+            assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
+
+    for shape in test_inputs_shapes[0]:
+        if shape.shape_type.name != "SINGLE_COLOUR":
+            continue
+
+        if shape.colour == Colour(3):
+            assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
+        elif shape.colour == Colour(1):
+            assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
+            assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
+
+
+def test_split_array_on_zeros_with_indices():
+    array = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+            [1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0],
+            [1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0],
+            [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0],
+            [1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0],
+            [0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [4, 0, 0, 4, 0, 4, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+            [4, 4, 4, 4, 0, 4, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0],
+            [4, 0, 4, 0, 0, 4, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0],
+            [0, 4, 4, 4, 4, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0],
+            [4, 4, 4, 0, 4, 4, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+            [0, 4, 4, 4, 4, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0],
+            [0, 4, 4, 4, 0, 4, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0],
+            [0, 4, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0],
+            [4, 4, 0, 4, 0, 4, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ],
+        dtype=np.int16,
+    )
+
+    sub_arrays_with_indices = Interpreter._split_array_on_zeros_with_indices(array)
+
+    assert len(sub_arrays_with_indices) == 4
+
+    array_1 = np.array(
+        [
+            [0, 1, 0, 1, 1, 1],
+            [1, 0, 1, 0, 0, 0],
+            [1, 1, 0, 1, 1, 0],
+            [1, 1, 0, 0, 1, 1],
+            [0, 1, 1, 1, 0, 0],
+            [1, 0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 1, 0],
+        ],
+        dtype=np.int16,
+    )
+
+    array_2 = np.array(
+        [
+            [1, 1, 0, 1, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 0, 0, 0, 1, 1, 1, 0],
+            [1, 1, 0, 0, 1, 1, 1, 1, 1],
+            [1, 1, 1, 0, 0, 1, 0, 0, 1],
+        ],
+        dtype=np.int16,
+    )
+
+    array_3 = np.array(
+        [
+            [4, 0, 0, 4, 0, 4],
+            [4, 4, 4, 4, 0, 4],
+            [4, 0, 4, 0, 0, 4],
+            [0, 4, 4, 4, 4, 0],
+            [4, 4, 4, 0, 4, 4],
+            [0, 4, 4, 4, 4, 0],
+            [0, 4, 4, 4, 0, 4],
+            [0, 4, 0, 0, 0, 0],
+            [4, 4, 0, 4, 0, 4],
+        ],
+        dtype=np.int16,
+    )
+
+    array_4 = np.array(
+        [
+            [1, 0, 0, 1, 1, 1, 1, 1, 1],
+            [1, 0, 1, 1, 1, 1, 1, 1, 0],
+            [0, 1, 0, 0, 1, 1, 1, 1, 1],
+            [1, 1, 0, 0, 1, 0, 1, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 1, 0, 0, 0, 0, 1, 1, 1],
+            [0, 1, 0, 1, 0, 1, 1, 1, 0],
+            [1, 0, 1, 1, 1, 0, 1, 0, 1],
+            [1, 1, 1, 0, 0, 1, 1, 1, 0],
+        ],
+        dtype=np.int16,
+    )
+
+    assert np.array_equal(sub_arrays_with_indices[0][1], array_1)
+    assert np.array_equal(sub_arrays_with_indices[1][1], array_2)
+    assert np.array_equal(sub_arrays_with_indices[2][1], array_3)
+    assert np.array_equal(sub_arrays_with_indices[3][1], array_4)
+    assert sub_arrays_with_indices[0][0] == (1, 0)
+    assert sub_arrays_with_indices[1][0] == (1, 8)
+    assert sub_arrays_with_indices[2][0] == (11, 0)
+    assert sub_arrays_with_indices[3][0] == (11, 8)

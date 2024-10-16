@@ -4,11 +4,11 @@ import math
 from typing import Any, NamedTuple
 
 from arc_2024.inductive_logic_programming.first_order_logic import (
+    ArgType,
     Clause,
     Constant,
     Literal,
     Predicate,
-    RuleBasedPredicate,
     Variable,
     evaluate_literal,
 )
@@ -20,8 +20,9 @@ class FOIL:
     background_knowledge: dict[str, set[tuple]]
     allow_recursion: bool
     beam_width: int
-    max_clause_length: int
+    _max_clause_length: int
     rules: list[Clause]
+    _non_extendable_types: set[ArgType]
 
     class BeamItem(NamedTuple):
         clause: Clause
@@ -44,6 +45,7 @@ class FOIL:
         allow_recursion: bool = False,
         beam_width: int = 1,
         max_clause_length: int = 7,
+        non_extendable_types=set(),
     ):
         """
         Initialize the FOIL algorithm.
@@ -57,7 +59,8 @@ class FOIL:
         self.background_knowledge = background_knowledge
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
-        self.max_clause_length = max_clause_length
+        self._max_clause_length = max_clause_length
+        self._non_extendable_types = non_extendable_types
         self.rules = []
 
     def fit(self, examples: list[tuple[bool, dict[str, Any]]]):
@@ -104,7 +107,6 @@ class FOIL:
         :param neg_examples: A list of negative examples.
         :return: A new Clause object.
         """
-
         old_positive_examples = copy.deepcopy(uncovered_pos_examples)
         old_negative_examples = copy.deepcopy(neg_examples)
 
@@ -125,9 +127,9 @@ class FOIL:
 
             # We check clause length. Fine to just check first
             # item as they all have the same length
-            if len(beam[0].clause.body) >= self.max_clause_length:
+            if len(beam[0].clause.body) >= self._max_clause_length:
                 raise Exception(
-                    f"Could not find a valid clause: max_clause_length {self.max_clause_length} reached"  # noqa: E501
+                    f"Could not find a valid clause: max_clause_length {self._max_clause_length} reached"  # noqa: E501
                 )
 
             for beam_item in beam:
@@ -336,10 +338,10 @@ class FOIL:
         # get the literals already used in the clause so we don't repeat
         used_literals = set(clause.body)
 
-        if isinstance(predicate, RuleBasedPredicate):
-            # Rule based preds need bound args when
-            # checking coverage
-            allow_variable_extension = False
+        # if isinstance(predicate, RuleBasedPredicate):
+        #     # Rule based preds need bound args when
+        #     # checking coverage
+        #     allow_variable_extension = False
 
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
@@ -367,6 +369,9 @@ class FOIL:
 
             # append the combinations of the new variable with the other variables
             for i, new_vars in enumerate(new_vars_per_arg):
+                if new_vars[0].arg_type in self._non_extendable_types:
+                    continue
+
                 new_vars_with_other_args_per_arg = (
                     valid_vars_per_arg[:i] + [new_vars] + valid_vars_per_arg[i + 1 :]
                 )

@@ -73,7 +73,16 @@ class Solver:
         vertical_edge_distance_less_than_pred: Predicate
         horizontal_edge_distance_more_than_pred: Predicate
         horizontal_edge_distance_less_than_pred: Predicate
+        vertical_grid_top_distance_more_than_pred: Predicate
+        vertical_grid_bottom_distance_more_than_pred: Predicate
+        vertical_grid_top_distance_less_than_pred: Predicate
+        vertical_grid_bottom_distance_less_than_pred: Predicate
+        horizontal_grid_left_distance_more_than_pred: Predicate
+        horizontal_grid_right_distance_more_than_pred: Predicate
+        horizontal_grid_left_distance_less_than_pred: Predicate
+        horizontal_grid_right_distance_less_than_pred: Predicate
         number_value_predicates: list[RuleBasedPredicate]
+        touching_grid_edge_pred: Predicate
 
         def to_list(self) -> list[Predicate]:
             flattened: list[Predicate] = []
@@ -107,45 +116,59 @@ class Solver:
         self.outputs = outputs
         self.test_inputs = test_inputs
 
-    def solve(self, beam_width: int = 1) -> List[NDArray[np.int16]]:
+    def solve(self, beam_width: int = 1) -> tuple[bool, list[NDArray[np.int16]]]:
         """
         This function solves the task.
         """
         interpreter = Interpreter(self.inputs, self.outputs, self.test_inputs)
+        interpretations = interpreter.interpret_shapes()
 
-        (
-            inputs_shapes,
-            outputs_shapes,
-            test_inputs_shapes,
-        ) = interpreter.interpret_shapes()
+        for interpretation in interpretations:
+            try:
+                (
+                    inputs_shapes,
+                    outputs_shapes,
+                    test_inputs_shapes,
+                    _,
+                ) = interpretation
 
-        # We prepare data for the FOIL algorithm
-        possible_colours: list[Colour] = self._extract_all_possible_colours(
-            inputs_shapes, outputs_shapes
-        )  # noqa: E501
+                # We prepare data for the FOIL algorithm
+                possible_colours: list[Colour] = self._extract_all_possible_colours(
+                    inputs_shapes, outputs_shapes
+                )  # noqa: E501
 
-        arg_types = self._create_args_types(
-            possible_colours, inputs_shapes, outputs_shapes
-        )
-        variables = self._create_variables(arg_types)
-        target_literal = self._create_target_literal(arg_types, variables)
-        predicates = self._create_predicates(arg_types, possible_colours, inputs_shapes)
-        predicate_list = predicates.to_list()
-        examples = self._create_examples(possible_colours, variables)
+                arg_types = self._create_args_types(
+                    possible_colours, inputs_shapes, outputs_shapes
+                )
+                variables = self._create_variables(arg_types)
+                target_literal = self._create_target_literal(arg_types, variables)
+                predicates = self._create_predicates(
+                    arg_types, possible_colours, inputs_shapes
+                )
+                predicate_list = predicates.to_list()
+                examples = self._create_examples(possible_colours, variables)
 
-        # Background facts for predicates
-        background_knowledge = self._create_background_knowledge(
-            predicates, inputs_shapes, test_inputs_shapes
-        )
+                # Background facts for predicates
+                background_knowledge = self._create_background_knowledge(
+                    predicates, inputs_shapes, test_inputs_shapes
+                )
 
-        foil = FOIL(
-            target_literal, predicate_list, background_knowledge, beam_width=beam_width
-        )
-        foil.fit(examples)
+                foil = FOIL(
+                    target_literal,
+                    predicate_list,
+                    background_knowledge,
+                    beam_width=beam_width,
+                )
+                foil.fit(examples)
 
-        return self._calculate_results(
-            foil, possible_colours, variables, test_inputs_shapes
-        )
+                result = self._calculate_results(
+                    foil, possible_colours, variables, test_inputs_shapes
+                )
+                return (True, result)
+            except Exception as e:
+                print(f"Error: {e}")
+
+        return (False, [])
 
     def _extract_all_possible_colour_counts_for_grids(self) -> List[int]:
         possible_counts: set[int] = set()
@@ -182,13 +205,22 @@ class Solver:
 
         return get_possible_j_values
 
-    def _get_possible_mumber_values_func(self) -> Callable[[dict[str, Any]], list]:
+    def _get_possible_number_values_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
         for example_number, output in enumerate(self.outputs):
             # we just take the max of the input and output cords
             # this will create unnecessary values for non square grids
             max_value = max(output.shape[0], output.shape[1])
             possible_values[example_number] = list(range(max_value))
+
+        # TODO: Need to change once we know output grid size
+        for example_number, output in enumerate(self.test_inputs):
+            # we just take the max of the input and output cords
+            # this will create unnecessary values for non square grids
+            max_value = max(output.shape[0], output.shape[1])
+            possible_values[example_number + self._TEST_EX_NUMBER_OFFSET] = list(
+                range(max_value)
+            )
 
         def get_possible_mumber_values(example: dict[str, Any]) -> list:
             # V1 is set as example number
@@ -274,6 +306,7 @@ class Solver:
             test_inputs_shapes
         )  # noqa: E501
         possible_colours.extend(more_possible_colours)
+        possible_colours = list(set(possible_colours))
 
         # we iteratively populate the test outputs
         test_outputs: List[NDArray[np.int16]] = []
@@ -291,8 +324,9 @@ class Solver:
                                 variables.v4.name: j,
                             }
                         ):
+                            if test_output[i, j] != 0:
+                                raise Exception("Multiple predictions for same cell")
                             test_output[i, j] = possible_colour.value
-                            break
             test_outputs.append(test_output)
 
         return test_outputs
@@ -668,7 +702,7 @@ class Solver:
         )  # noqa: E501
 
         number_value_arg = ArgType(
-            "number_value", possible_values_fn=self._get_possible_mumber_values_func()
+            "number_value", possible_values_fn=self._get_possible_number_values_func()
         )
 
         return self.ArgTypes(
@@ -964,6 +998,62 @@ class Solver:
             [ex_num_arg, i_arg, j_arg, shape_arg, number_value_arg],
         )
 
+        vertical_grid_top_distance_more_than_pred = RuleBasedPredicate(
+            "vertical-grid-top-distance-more-than",
+            3,
+            [ex_num_arg, i_arg, number_value_arg],
+            self._get_grid_top_more_than_eval_func(),
+        )
+
+        vertical_grid_bottom_distance_more_than_pred = RuleBasedPredicate(
+            "vertical-grid-bottom-distance-more-than",
+            3,
+            [ex_num_arg, i_arg, number_value_arg],
+            self._get_grid_bottom_more_than_eval_func(),
+        )
+
+        vertical_grid_top_distance_less_than_pred = RuleBasedPredicate(
+            "vertical-grid-top-distance-less-than",
+            3,
+            [ex_num_arg, i_arg, number_value_arg],
+            self._get_grid_top_less_than_eval_func(),
+        )
+
+        vertical_grid_bottom_distance_less_than_pred = RuleBasedPredicate(
+            "vertical-grid-bottom-distance-less-than",
+            3,
+            [ex_num_arg, i_arg, number_value_arg],
+            self._get_grid_bottom_less_than_eval_func(),
+        )
+
+        horizontal_grid_left_distance_more_than_pred = RuleBasedPredicate(
+            "horizontal-grid-left-distance-more-than",
+            3,
+            [ex_num_arg, j_arg, number_value_arg],
+            self._get_grid_left_more_than_eval_func(),
+        )
+
+        horizontal_grid_right_distance_more_than_pred = RuleBasedPredicate(
+            "horizontal-grid-right-distance-more-than",
+            3,
+            [ex_num_arg, j_arg, number_value_arg],
+            self._get_grid_right_more_than_eval_func(),
+        )
+
+        horizontal_grid_left_distance_less_than_pred = RuleBasedPredicate(
+            "horizontal-grid-left-distance-less-than",
+            3,
+            [ex_num_arg, j_arg, number_value_arg],
+            self._get_grid_left_less_than_eval_func(),
+        )
+
+        horizontal_grid_right_distance_less_than_pred = RuleBasedPredicate(
+            "horizontal-grid-right-distance-less-than",
+            3,
+            [ex_num_arg, j_arg, number_value_arg],
+            self._get_grid_right_less_than_eval_func(),
+        )
+
         number_value_predicates: list[RuleBasedPredicate] = []
         for number in range(self._get_max_num_arg_value()):
             number_value_predicates.append(
@@ -974,6 +1064,13 @@ class Solver:
                     self._get_number_eval_func(number),
                 )
             )
+
+        touching_grid_edge_pred = RuleBasedPredicate(
+            "touching-grid-egde",
+            3,
+            [ex_num_arg, i_arg, j_arg],
+            self._get_touching_grid_edge_eval_func(),
+        )
 
         return self.Predicates(
             input_pred=input_pred,
@@ -1011,7 +1108,16 @@ class Solver:
             vertical_edge_distance_less_than_pred=vertical_edge_distance_less_than_pred,  # noqa: E501
             horizontal_edge_distance_more_than_pred=horizontal_edge_distance_more_than_pred,  # noqa: E501
             horizontal_edge_distance_less_than_pred=horizontal_edge_distance_less_than_pred,  # noqa: E501
+            vertical_grid_top_distance_more_than_pred=vertical_grid_top_distance_more_than_pred,  # noqa: E501
+            vertical_grid_bottom_distance_more_than_pred=vertical_grid_bottom_distance_more_than_pred,  # noqa: E501
+            vertical_grid_top_distance_less_than_pred=vertical_grid_top_distance_less_than_pred,  # noqa: E501
+            vertical_grid_bottom_distance_less_than_pred=vertical_grid_bottom_distance_less_than_pred,  # noqa: E501
+            horizontal_grid_left_distance_more_than_pred=horizontal_grid_left_distance_more_than_pred,  # noqa: E501
+            horizontal_grid_right_distance_more_than_pred=horizontal_grid_right_distance_more_than_pred,  # noqa: E501
+            horizontal_grid_left_distance_less_than_pred=horizontal_grid_left_distance_less_than_pred,  # noqa: E501
+            horizontal_grid_right_distance_less_than_pred=horizontal_grid_right_distance_less_than_pred,  # noqa: E501
             number_value_predicates=number_value_predicates,
+            touching_grid_edge_pred=touching_grid_edge_pred,
         )
 
     def _create_examples(
@@ -1180,6 +1286,101 @@ class Solver:
     @staticmethod
     def _get_more_than_eval_func(value: int) -> Callable[..., bool]:
         return lambda x: x > value
+
+    @staticmethod
+    def _get_grid_top_more_than_eval_func() -> Callable[..., bool]:
+        return lambda _, i, value: i > value
+
+    def _get_grid_bottom_more_than_eval_func(self) -> Callable[..., bool]:
+        output_grid_heights = {}
+        for ex, output_grids in enumerate(self.outputs):
+            output_grid_heights[ex] = output_grids.shape[0]
+
+        # TODO: we need to change this once we know output grid size
+        for ex, test_input_grids in enumerate(self.test_inputs):
+            output_grid_heights[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[0]
+
+        return (
+            lambda ex_number, i, value: output_grid_heights[ex_number] - i - 1 > value
+        )
+
+    @staticmethod
+    def _get_grid_top_less_than_eval_func() -> Callable[..., bool]:
+        return lambda _, i, value: i < value
+
+    def _get_grid_bottom_less_than_eval_func(self) -> Callable[..., bool]:
+        output_grid_heights = {}
+        for ex, output_grids in enumerate(self.outputs):
+            output_grid_heights[ex] = output_grids.shape[0]
+
+        # TODO: we need to change this once we know output grid size
+        for ex, test_input_grids in enumerate(self.test_inputs):
+            output_grid_heights[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[0]
+
+        return (
+            lambda ex_number, i, value: output_grid_heights[ex_number] - i - 1 < value
+        )
+
+    @staticmethod
+    def _get_grid_left_more_than_eval_func() -> Callable[..., bool]:
+        return lambda _, j, value: j > value
+
+    def _get_grid_right_more_than_eval_func(self) -> Callable[..., bool]:
+        output_grid_widths = {}
+        for ex, output_grids in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grids.shape[1]
+
+        # TODO: we need to change this once we know output grid size
+        for ex, test_input_grids in enumerate(self.test_inputs):
+            output_grid_widths[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[1]
+
+        return lambda ex_number, j, value: output_grid_widths[ex_number] - j - 1 > value
+
+    @staticmethod
+    def _get_grid_left_less_than_eval_func() -> Callable[..., bool]:
+        return lambda _, j, value: j < value
+
+    def _get_grid_right_less_than_eval_func(self) -> Callable[..., bool]:
+        output_grid_widths = {}
+        for ex, output_grids in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grids.shape[1]
+
+        # TODO: we need to change this once we know output grid size
+        for ex, test_input_grids in enumerate(self.test_inputs):
+            output_grid_widths[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[1]
+
+        return lambda ex_number, j, value: output_grid_widths[ex_number] - j - 1 < value
+
+    def _get_touching_grid_edge_eval_func(self) -> Callable[..., bool]:
+        output_grid_widths = {}
+        output_grid_heights = {}
+        for ex, output_grids in enumerate(self.outputs):
+            output_grid_widths[ex] = output_grids.shape[1]
+            output_grid_heights[ex] = output_grids.shape[0]
+
+        # TODO: we need to change this once we know output grid size
+        for ex, test_input_grids in enumerate(self.test_inputs):
+            output_grid_widths[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[1]
+            output_grid_heights[
+                ex + self._TEST_EX_NUMBER_OFFSET
+            ] = test_input_grids.shape[0]
+
+        return (
+            lambda ex_number, i, j: i == 0
+            or j == 0
+            or i == output_grid_heights[ex_number] - 1
+            or j == output_grid_widths[ex_number] - 1
+        )
 
     @staticmethod
     def _generate_shape_colour_pred_name(colour: Colour) -> str:
