@@ -4,6 +4,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
+from arc_2024.representations.helper import (
+    find_smallest_indices_equal_to_q,
+    remove_rows_and_cols_with_value_x,
+    surrounding_coordinates,
+)
 from arc_2024.representations.shape_type import ShapeType
 
 RelationshipType = Callable[["Shape"], bool]
@@ -22,6 +27,7 @@ class Shape:
     colours: set[Colour]
     colour_count: int
     shape_groups: set[str]
+    _internal_blank_spaces_in_mask: list[tuple[tuple[int, int], NDArray[np.int16]]]
 
     def __init__(
         self,
@@ -78,6 +84,7 @@ class Shape:
         centre_width = self.position[1] + self.width / 2 - 0.5
         self.centre = (centre_height, centre_width)
         self.shape_groups = set()
+        self._internal_blank_spaces_in_mask = self._find_internal_blank_spaces_in_mask()
 
         self.relationships = {
             "is_exact_match": self.is_exact_match,
@@ -94,7 +101,7 @@ class Shape:
             "is_inline_left_horizontally": self.is_inline_left_horizontally,
             "is_inline_right_horizontally": self.is_inline_right_horizontally,
             "is_mask_overlapping": self.is_mask_overlapping,
-            "is_inside": self.is_inside,
+            "is_inside": self.is_inside_mask,
             "is_same_colour": self.is_same_colour,
         }
 
@@ -364,7 +371,7 @@ class Shape:
         # Check for overlap using logical_and
         return np.any(np.logical_and(self_relative_mask, other_relative_mask))
 
-    def is_inside(self, other: "Shape") -> bool:
+    def is_inside_mask(self, other: "Shape") -> bool:
         """
         Returns True if self is inside other
         """
@@ -375,7 +382,31 @@ class Shape:
             and self.right_most <= other.right_most
         )
 
-    def is_ij_inside(self, i: int, j: int) -> bool:
+    def is_ij_inside_blank_space(self, i: int, j: int) -> bool:
+        for blank_space in self._internal_blank_spaces_in_mask:
+            position = blank_space[0]
+            mask = blank_space[1]
+
+            if i < position[0]:
+                continue
+
+            if j < position[1]:
+                continue
+
+            if i > position[0] + mask.shape[0] - 1:
+                continue
+
+            if j > position[1] + mask.shape[1] - 1:
+                continue
+
+            i_in_mask = i - position[0]
+            j_in_mask = j - position[1]
+
+            if mask[i_in_mask, j_in_mask]:
+                return True
+        return False
+
+    def is_ij_inside_mask(self, i: int, j: int) -> bool:
         """
         Returns True if i,j inside self
         """
@@ -386,17 +417,17 @@ class Shape:
             and self.right_most >= j
         )
 
-    def is_inside_not_overlapping(self, other: "Shape") -> bool:
+    def is_inside_mask_not_overlapping(self, other: "Shape") -> bool:
         """
         Returns True if self is inside other and not overlapping
         """
-        return self.is_inside(other) and not self.is_mask_overlapping(other)
+        return self.is_inside_mask(other) and not self.is_mask_overlapping(other)
 
-    def is_ij_inside_not_overlapping(self, i: int, j: int) -> bool:
+    def is_ij_inside_mask_not_overlapping(self, i: int, j: int) -> bool:
         """
         Returns True if i,j inside self and not overlapping
         """
-        return self.is_ij_inside(i, j) and not self.is_mask_overlapping_ij(i, j)
+        return self.is_ij_inside_mask(i, j) and not self.is_mask_overlapping_ij(i, j)
 
     def is_same_colour(self, other: "Shape") -> bool:
         """
@@ -518,3 +549,89 @@ class Shape:
         rot0: NDArray[np.bool_] = self_mask.astype(bool)
         rot90 = np.rot90(rot0)
         return np.array_equal(rot0, rot90)
+
+    def _find_internal_blank_spaces_in_mask(
+        self,
+    ) -> list[tuple[tuple[int, int], NDArray[np.int16]]]:
+        searched_space: set = set()
+        frontier: set = set()
+        spaces: list[tuple[tuple[int, int], NDArray[np.int16]]] = []
+
+        if self.mask.shape[0] < 3 or self.mask.shape[1] < 3:
+            return []  # not possible to have hollow insides
+
+        for j in range(self.mask.shape[0]):
+            for k in range(self.mask.shape[1]):
+                if (j, k) in searched_space:
+                    continue
+
+                # isn't blank
+                if self.mask[j, k] != 0:
+                    searched_space.add((j, k))
+                    continue
+
+                discovered_space = self._find_blank_space_by_search(
+                    j, k, searched_space, frontier
+                )
+
+                if not self._is_mask_touching_side(
+                    discovered_space[1], discovered_space[0]
+                ):
+                    spaces.append(discovered_space)
+        return spaces
+
+    def _find_blank_space_by_search(
+        self, starting_j: int, starting_k: int, searched_space: set, frontier: set
+    ) -> tuple[tuple[int, int], NDArray[np.int16]]:
+        grid = self.mask
+        if grid.ndim != 2:
+            raise ValueError("grid Array must be 2D")
+
+        # we make a mask the size of the
+        # whole grid and then chop it down later
+        mask = np.zeros((grid.shape[0], grid.shape[1]), dtype=np.bool_)
+        mask[starting_j, starting_k] = True
+
+        # loop over entire area surrounding the shape recursively
+        # if the shape is not already in the searched_space
+        frontier = surrounding_coordinates(
+            starting_j,
+            starting_k,
+            grid.shape[0],
+            grid.shape[1],
+            include_diagonals=False,
+        )
+        frontier = frontier - searched_space
+        searched_space.add((starting_j, starting_k))
+
+        while frontier:
+            explore_j, explore_k = frontier.pop()
+            if grid[explore_j, explore_k] != 0:
+                searched_space.add((explore_j, explore_k))
+                continue
+
+            frontier = frontier.union(
+                surrounding_coordinates(
+                    explore_j,
+                    explore_k,
+                    grid.shape[0],
+                    grid.shape[1],
+                    include_diagonals=False,
+                )
+            )
+            frontier = frontier - searched_space
+            mask[explore_j, explore_k] = True
+            searched_space.add((explore_j, explore_k))
+
+        position = find_smallest_indices_equal_to_q(mask, True)
+        mask = remove_rows_and_cols_with_value_x(mask, False)
+        return ((position[0] + self.position[0], position[1] + self.position[1]), mask)
+
+    def _is_mask_touching_side(
+        self, mask: NDArray[np.bool_], position: tuple[int, int]
+    ) -> bool:
+        touching_top = position[0] == self.top_most
+        touching_left = position[1] == self.left_most
+        touching_bottom = position[0] + mask.shape[0] - 1 == self.bottom_most
+        touching_right = position[1] + mask.shape[1] - 1 == self.right_most
+        return touching_top or touching_left or touching_bottom or touching_right

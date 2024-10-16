@@ -16,6 +16,7 @@ from arc_2024.solver import Solver
         ("6e82a1ae", [np.zeros((10, 10), dtype=np.int16)]),
         ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]),
         ("6f8cd79b", [np.zeros((7, 6), dtype=np.int16)]),
+        ("00d62c1b", [np.zeros((20, 20), dtype=np.int16)]),
     ],
 )
 def test_solver(task_id, empty_test_outputs):

@@ -1,11 +1,16 @@
 import itertools
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
+from arc_2024.representations.helper import (
+    find_smallest_indices_greater_than_q,
+    remove_rows_and_cols_with_value_x,
+    surrounding_coordinates,
+)
 from arc_2024.representations.rotatable_mask_shape import RotatableMaskShape
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
@@ -117,46 +122,6 @@ class Interpreter:
         return interpretations
 
     @staticmethod
-    def _surrounding_coordinates(i: int, j: int, i_max: int, j_max: int) -> set:
-        directions = [
-            (i - 1, j - 1),
-            (i - 1, j),
-            (i - 1, j + 1),
-            (i, j - 1),
-            (i, j + 1),
-            (i + 1, j - 1),
-            (i + 1, j),
-            (i + 1, j + 1),
-        ]
-
-        return {
-            (x, y)
-            for x, y in directions
-            if x >= 0 and y >= 0 and x < i_max and y < j_max
-        }
-
-    @staticmethod
-    def _remove_zero_rows_and_cols(arr: np.ndarray) -> np.ndarray:
-        # Remove rows with all zeros
-        arr = arr[~np.all(arr == 0, axis=1)]
-        # Remove columns with all zeros
-        arr = arr[:, ~np.all(arr == 0, axis=0)]
-        return arr
-
-    @staticmethod
-    def _find_smallest_indices_greater_than_q(arr: np.ndarray, q) -> Tuple[int, int]:
-        rows_greater_than_q = np.any(arr > q, axis=1)
-        cols_greater_than_q = np.any(arr > q, axis=0)
-
-        min_i = np.where(rows_greater_than_q)[0]
-        min_j = np.where(cols_greater_than_q)[0]
-
-        if min_i.size > 0 and min_j.size > 0:
-            return int(min_i[0]), int(min_j[0])
-        else:
-            raise ValueError(f"No row and column contain '{q}'")
-
-    @staticmethod
     def _find_shape_by_search(
         starting_j: int,
         starting_k: int,
@@ -183,7 +148,7 @@ class Interpreter:
 
         # loop over entire area surrounding the shape recursively
         # if the shape is not already in the searched_space
-        shape_frontier = Interpreter._surrounding_coordinates(
+        shape_frontier = surrounding_coordinates(
             starting_j, starting_k, grid.shape[0], grid.shape[1]
         )
         shape_frontier = shape_frontier - searched_space
@@ -204,7 +169,7 @@ class Interpreter:
                     raise ValueError(f"Shape type not supported: {shape_type}")
 
             shape_frontier = shape_frontier.union(
-                Interpreter._surrounding_coordinates(
+                surrounding_coordinates(
                     explore_j,
                     explore_k,
                     grid.shape[0],
@@ -215,8 +180,8 @@ class Interpreter:
             mask[explore_j, explore_k] = grid[explore_j, explore_k]
             searched_space.add((explore_j, explore_k))
 
-        position = Interpreter._find_smallest_indices_greater_than_q(mask, 0)
-        mask = Interpreter._remove_zero_rows_and_cols(mask)
+        position = find_smallest_indices_greater_than_q(mask, 0)
+        mask = remove_rows_and_cols_with_value_x(mask, 0)
 
         if shape_type == ShapeType.MIXED_COLOUR and len(colours) == 1:
             return None

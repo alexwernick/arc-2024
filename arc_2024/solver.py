@@ -56,8 +56,9 @@ class Solver:
         inline_left_horizontally_pred: Predicate
         inline_right_horizontally_pred: Predicate
         mask_overlapping_pred: Predicate
-        inside_pred: Predicate
-        inside_not_overlapping_pred: Predicate
+        inside_mask_pred: Predicate
+        inside_blank_space_pred: Predicate
+        inside_mask_not_overlapping_pred: Predicate
         top_left_bottom_right_diag_pred: Predicate
         bottom_left_top_right_diag_pred: Predicate
         # shape_colour_predicates: list[Predicate]
@@ -587,8 +588,18 @@ class Solver:
                 )
             )
 
-        if input_shape.is_ij_inside(output_i, output_j):
-            background_knowledge[predicates.inside_pred.name].add(
+        if input_shape.is_ij_inside_mask(output_i, output_j):
+            background_knowledge[predicates.inside_mask_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        if input_shape.is_ij_inside_blank_space(output_i, output_j):
+            background_knowledge[predicates.inside_blank_space_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -607,8 +618,8 @@ class Solver:
                 )
             )
 
-        if input_shape.is_ij_inside_not_overlapping(output_i, output_j):
-            background_knowledge[predicates.inside_not_overlapping_pred.name].add(
+        if input_shape.is_ij_inside_mask_not_overlapping(output_i, output_j):
+            background_knowledge[predicates.inside_mask_not_overlapping_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -807,9 +818,14 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
-        inside_pred = Predicate("inside", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
-        inside_not_overlapping_pred = Predicate(
-            "inside-not-overlapping",
+        inside_mask_pred = Predicate(
+            "inside-mask", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
+        )
+        inside_blank_space_pred = Predicate(
+            "inside-blank-space", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
+        )
+        inside_mask_not_overlapping_pred = Predicate(
+            "inside-mask-not-overlapping",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )
@@ -1089,8 +1105,9 @@ class Solver:
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
-            inside_pred=inside_pred,
-            inside_not_overlapping_pred=inside_not_overlapping_pred,
+            inside_mask_pred=inside_mask_pred,
+            inside_blank_space_pred=inside_blank_space_pred,
+            inside_mask_not_overlapping_pred=inside_mask_not_overlapping_pred,
             top_left_bottom_right_diag_pred=top_left_bottom_right_diag_pred,
             bottom_left_top_right_diag_pred=bottom_left_top_right_diag_pred,
             # shape_colour_predicates=shape_colour_predicates,
