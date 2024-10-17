@@ -103,10 +103,11 @@ class GridSizeSolver:
             predicate_list,
             background_knowledge,
             beam_width=beam_width,
-            non_extendable_types={
-                arg_types.width_arg,
-                arg_types.height_arg,
-                arg_types.example_number_arg,
+            type_extension_limit={
+                arg_types.example_number_arg: 1,
+                arg_types.width_arg: 1,
+                arg_types.height_arg: 1,
+                arg_types.shape_arg: 3,
             },
             max_clause_length=4,
         )

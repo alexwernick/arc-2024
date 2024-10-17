@@ -345,6 +345,9 @@ class Shape:
         """
         Returns True if masks overlap
         """
+        if other_position[0] < 0 or other_position[1] < 0:
+            return False
+
         # Define the larger grid size
         max_height = max(
             self.position[0] + self.height, other_position[0] + other_height

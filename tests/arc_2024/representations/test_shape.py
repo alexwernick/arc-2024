@@ -1061,3 +1061,39 @@ def test_is_ij_inside_blank_space():
             else:
                 result = shape.is_ij_inside_blank_space(i, j)
                 assert not result
+
+
+def test_is_mask_overlapping_ij():
+    true_positions = [(2, 3), (2, 4), (3, 3), (3, 4), (4, 3), (8, 4), (7, 8)]
+    mask = np.array(
+        [
+            [3, 3, 3, 3, 0, 0, 0, 0],
+            [3, 0, 0, 3, 0, 0, 0, 0],
+            [3, 0, 0, 3, 0, 3, 0, 0],
+            [3, 0, 3, 3, 3, 3, 3, 0],
+            [0, 3, 0, 0, 0, 0, 3, 0],
+            [0, 3, 0, 0, 0, 3, 3, 0],
+            [0, 3, 3, 0, 0, 3, 0, 3],
+            [0, 3, 0, 3, 0, 0, 3, 0],
+            [0, 0, 3, 0, 0, 0, 0, 0],
+        ],
+        dtype=np.int16,
+    )
+
+    indices = np.where(mask == 3)
+    true_positions = list(zip(indices[0] + 1, indices[1] + 2))
+
+    shape = Shape(
+        (1, 2),
+        mask,
+        shape_type=ShapeType.SINGLE_COLOUR,
+    )
+
+    for i in range(10):
+        for j in range(10):
+            if (i, j) in true_positions:
+                result = shape.is_mask_overlapping_ij(i, j)
+                assert result
+            else:
+                result = shape.is_mask_overlapping_ij(i, j)
+                assert not result

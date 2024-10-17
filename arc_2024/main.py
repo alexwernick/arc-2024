@@ -1,4 +1,6 @@
+import cProfile
 import os
+import pstats
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,4 +32,9 @@ def main():
 
 
 if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
     main()
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats("cumulative")
+    stats.print_stats()

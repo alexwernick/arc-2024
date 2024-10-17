@@ -13,6 +13,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 )
 from arc_2024.inductive_logic_programming.FOIL import FOIL
 from arc_2024.representations.colour import Colour
+from arc_2024.representations.rotatable_mask_shape import RotatableMaskShape
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
 
@@ -56,6 +57,10 @@ class Solver:
         inline_left_horizontally_pred: Predicate
         inline_right_horizontally_pred: Predicate
         mask_overlapping_pred: Predicate
+        mask_overlapping_top_inline_top_pred: Predicate
+        mask_overlapping_bot_inline_bot_pred: Predicate
+        mask_overlapping_bot_top_touching_pred: Predicate
+        mask_overlapping_top_bot_touching_pred: Predicate
         inside_mask_pred: Predicate
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
@@ -154,6 +159,14 @@ class Solver:
             background_knowledge,
             beam_width=beam_width,
             max_clause_length=4,
+            type_extension_limit={
+                arg_types.example_number_arg: 1,
+                arg_types.i_arg: 1,
+                arg_types.j_arg: 1,
+                arg_types.number_value_arg: 2,
+                arg_types.shape_arg: 3,
+                arg_types.colour_type_arg: 2,
+            },
         )
         foil.fit(examples)
 
@@ -228,6 +241,12 @@ class Solver:
     def _get_possible_shapes_func(self) -> Callable[[dict[str, Any]], list]:
         possible_values = {}
         for example_number, _ in enumerate(self.inputs):
+            input_shapes: list[str] = []
+            for i in range(len(self.inputs_shapes[example_number])):
+                if self.inputs_shapes[example_number][i].shape_type == ShapeType.PIXEL:
+                    continue
+                input_shapes.append(self._generate_shape_name(example_number, True, i))
+
             input_shapes = [
                 self._generate_shape_name(example_number, True, i)
                 for i in range(len(self.inputs_shapes[example_number]))
@@ -453,6 +472,38 @@ class Solver:
                             input_shape_name,
                             predicates,
                         )
+
+            for input_shape_index_1, input_shape_1 in enumerate(input_shapes):
+                # for now lets ignore pixels
+                if input_shape_1.shape_type == ShapeType.PIXEL:
+                    continue
+                input_shape_name_1 = self._generate_shape_name(
+                    ex_test_number, True, input_shape_index_1
+                )
+                for input_shape_index_2, input_shape_2 in enumerate(input_shapes):
+                    # for now lets ignore pixels
+                    if input_shape_2.shape_type == ShapeType.PIXEL:
+                        continue
+                    if input_shape_index_1 == input_shape_index_2:
+                        continue
+
+                    input_shape_name_2 = self._generate_shape_name(
+                        ex_test_number, True, input_shape_index_2
+                    )
+
+                    for i in range(output_grid.shape[0]):
+                        for j in range(output_grid.shape[1]):
+                            self._append_background_knowledge_between_shapes(
+                                background_knowledge,
+                                i,
+                                j,
+                                input_shape_1,
+                                input_shape_name_1,
+                                input_shape_2,
+                                input_shape_name_2,
+                                ex_test_number,
+                                predicates,
+                            )
 
     def _append_background_knowledge_for_shape(
         self,
@@ -696,6 +747,118 @@ class Solver:
         #         (input_shape_name,)
         #     )
 
+    def _append_background_knowledge_between_shapes(
+        self,
+        background_knowledge: BackgroundKnowledgeType,
+        output_i: int,
+        output_j: int,
+        input_shape_1: Shape,
+        input_shape_name_1: str,
+        input_shape_2: Shape,
+        input_shape_name_2: str,
+        ex_number: int,
+        predicates: Predicates,
+    ) -> None:
+        if isinstance(input_shape_1, RotatableMaskShape) or isinstance(
+            input_shape_2, RotatableMaskShape
+        ):
+            return  # for now we don't have time to consider these complications
+
+        self._append_background_knowledge_for_mask_inline_with_shape(
+            background_knowledge,
+            output_i,
+            output_j,
+            input_shape_1,
+            input_shape_name_1,
+            input_shape_2,
+            input_shape_name_2,
+            ex_number,
+            predicates.mask_overlapping_top_inline_top_pred,
+            predicates.mask_overlapping_bot_inline_bot_pred,
+            predicates.mask_overlapping_bot_top_touching_pred,
+            predicates.mask_overlapping_top_bot_touching_pred,
+        )
+
+    @staticmethod
+    def _append_background_knowledge_for_mask_inline_with_shape(
+        background_knowledge: BackgroundKnowledgeType,
+        output_i: int,
+        output_j: int,
+        input_shape_1: Shape,
+        input_shape_name_1: str,
+        input_shape_2: Shape,
+        input_shape_name_2: str,
+        ex_number: int,
+        mask_overlapping_top_inline_top_pred: Predicate,
+        mask_overlapping_bot_inline_bot_pred: Predicate,
+        mask_overlapping_bot_top_touching_pred: Predicate,
+        mask_overlapping_top_bot_touching_pred: Predicate,
+    ):
+        distance_between_tops = input_shape_2.top_most - input_shape_1.top_most
+        distance_between_bottoms = input_shape_2.bottom_most - input_shape_1.bottom_most
+        distance_between_bot_top_touching = (
+            input_shape_2.top_most - input_shape_1.bottom_most - 1
+        )
+        distance_between_top_bot_touching = (
+            input_shape_2.bottom_most - input_shape_1.top_most + 1
+        )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i - distance_between_tops, output_j
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_top_inline_top_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i - distance_between_bottoms, output_j
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_bot_inline_bot_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i - distance_between_bot_top_touching, output_j
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_bot_top_touching_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i - distance_between_top_bot_touching, output_j
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_top_bot_touching_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
     def _create_args_types(
         self,
         possible_colours: list[Colour],
@@ -817,7 +980,27 @@ class Solver:
             "mask-overlapping",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
-        )  # noqa: E501
+        )
+        mask_overlapping_top_inline_top_pred = Predicate(
+            "mask-overlapping-top-inline-top-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_bot_inline_bot_pred = Predicate(
+            "mask-overlapping-bot-inline-bot-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_bot_top_touching_pred = Predicate(
+            "mask-overlapping-bot-top-touching-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_top_bot_touching_pred = Predicate(
+            "mask-overlapping-top-bot-touching-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
         inside_mask_pred = Predicate(
             "inside-mask", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
         )
@@ -1105,6 +1288,10 @@ class Solver:
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
+            mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
+            mask_overlapping_bot_inline_bot_pred=mask_overlapping_bot_inline_bot_pred,
+            mask_overlapping_bot_top_touching_pred=mask_overlapping_bot_top_touching_pred,  # noqa: E501
+            mask_overlapping_top_bot_touching_pred=mask_overlapping_top_bot_touching_pred,  # noqa: E501
             inside_mask_pred=inside_mask_pred,
             inside_blank_space_pred=inside_blank_space_pred,
             inside_mask_not_overlapping_pred=inside_mask_not_overlapping_pred,

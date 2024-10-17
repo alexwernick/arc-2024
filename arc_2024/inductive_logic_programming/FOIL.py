@@ -1,6 +1,7 @@
 import copy
 import itertools
 import math
+from functools import lru_cache
 from typing import Any, NamedTuple
 
 from arc_2024.inductive_logic_programming.first_order_logic import (
@@ -9,20 +10,23 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
     Constant,
     Literal,
     Predicate,
+    RuleBasedPredicate,
     Variable,
-    evaluate_literal,
 )
 
 
 class FOIL:
+    _DEFAULT_TYPE_EXTENSION_LIMIT = 4
+
     target_literal: Literal
     predicates: list[Predicate]
     background_knowledge: dict[str, set[tuple]]
+    predicate_indices: dict
     allow_recursion: bool
     beam_width: int
     _max_clause_length: int
     rules: list[Clause]
-    _non_extendable_types: set[ArgType]
+    _type_extension_limit: dict[ArgType, int]
 
     class BeamItem(NamedTuple):
         clause: Clause
@@ -45,7 +49,7 @@ class FOIL:
         allow_recursion: bool = False,
         beam_width: int = 1,
         max_clause_length: int = 7,
-        non_extendable_types=set(),
+        type_extension_limit={},
     ):
         """
         Initialize the FOIL algorithm.
@@ -57,10 +61,11 @@ class FOIL:
         self.target_literal = target_literal
         self.predicates = predicates
         self.background_knowledge = background_knowledge
+        self.predicate_indices = self._build_predicate_indices()
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
         self._max_clause_length = max_clause_length
-        self._non_extendable_types = non_extendable_types
+        self._type_extension_limit = type_extension_limit
         self.rules = []
 
     def fit(self, examples: list[tuple[bool, dict[str, Any]]]):
@@ -204,7 +209,8 @@ class FOIL:
                 continue  # Avoid cycles
 
             new_positive_examples: list[dict[str, Any]] = []
-            for example in old_positive_examples:
+            old_positive_examples_copy = copy.deepcopy(old_positive_examples)
+            for example in old_positive_examples_copy:
                 new_positive_examples.extend(self._extend_example(example, literal))
 
             new_non_extended_positive_examples = self._un_extend_examples(
@@ -239,7 +245,8 @@ class FOIL:
                 continue
 
             new_negative_examples: list[dict[str, Any]] = []
-            for example in old_negative_examples:
+            old_negative_examples_copy = copy.deepcopy(old_negative_examples)
+            for example in old_negative_examples_copy:
                 new_negative_examples.extend(self._extend_example(example, literal))
 
             new_negative_count = len(new_negative_examples)
@@ -286,7 +293,7 @@ class FOIL:
         # literal will be like Q(V1, V3)
         # need to loop over possible values
         # for V3 and add to examples if it satisfies the literal
-        extended_examples: list[dict[str, Any]] = []
+        extended_examples: list[dict[str, Any]] = [example]
         new_vars: list[Variable] = []
 
         for arg in literal_to_add.args:
@@ -301,25 +308,35 @@ class FOIL:
                 new_vars.append(arg)
                 continue
 
+        return self._extend_example_with_new_vars(
+            new_vars, extended_examples, literal_to_add
+        )
+
+    def _extend_example_with_new_vars(
+        self,
+        new_vars: list[Variable],
+        extended_examples: list[dict[str, Any]],
+        literal_to_add: Literal,
+    ) -> list[dict[str, Any]]:
+        valid_extended_examples = []
         if len(new_vars) == 0:
-            if evaluate_literal(literal_to_add, example, self.background_knowledge):
-                return [example]  # no new variables to add
-            return []
+            for example in extended_examples:
+                if self._evaluate_literal(literal_to_add, example):
+                    valid_extended_examples.append(example)  # no new variables to add
+            return valid_extended_examples
 
-        if len(new_vars) > 1:
-            raise ValueError("We should only have at most one new variable to add")
+        new_var = new_vars.pop()
+        new_extended_examples: list[dict[str, Any]] = []
 
-        new_var: Variable = new_vars[0]
+        for example in extended_examples:
+            for value in new_var.arg_type.possible_values(example):
+                example[new_var.name] = value
+                if self._partial_evaluate_literal(literal_to_add, example):
+                    new_extended_examples.append(example)
 
-        for value in new_var.arg_type.possible_values(example):
-            extended_example = copy.deepcopy(example)
-            extended_example[new_var.name] = value
-            if evaluate_literal(
-                literal_to_add, extended_example, self.background_knowledge
-            ):
-                extended_examples.append(extended_example)
-
-        return extended_examples
+        return self._extend_example_with_new_vars(
+            new_vars, new_extended_examples, literal_to_add
+        )
 
     def _new_literals_for_predicate(
         self,
@@ -350,6 +367,25 @@ class FOIL:
                 if arg_type == var.arg_type:
                     valid_vars_per_arg[i].append(var)
 
+        var_numbers: list[int] = []
+        for var in current_vars:
+            var_numbers.append(int(var.name[1:]))
+
+        current_max_var_num = max(var_numbers)
+
+        if allow_variable_extension:
+            # Introduce new variables (e.g., V1, V2)
+            for arg_type, valid_vars in zip(predicate.arg_types, valid_vars_per_arg):
+                extension_limit = self._type_extension_limit.get(
+                    arg_type, self._DEFAULT_TYPE_EXTENSION_LIMIT
+                )
+                current_count = len([v for v in current_vars if v.arg_type == arg_type])
+
+                if current_count >= extension_limit:
+                    continue
+                current_max_var_num = current_max_var_num + 1
+                valid_vars.append(Variable(f"V{current_max_var_num}", arg_type))
+
         # Generate all combinations of existing variables
         var_combinations = [
             combo
@@ -357,30 +393,13 @@ class FOIL:
             if len(set(combo)) == len(combo)  # avoid duplicates
         ]
 
-        if allow_variable_extension:
-            # Introduce new variables (e.g., V1, V2)
-            # We create a single additional variable for each type of argument
-            new_vars_per_arg: list[list[Variable]] = [
-                [] for _ in range(predicate.arity)
-            ]
-            new_var_number = 1 + len(clause.variables)
-            for i, arg_type in enumerate(predicate.arg_types):
-                new_vars_per_arg[i].append(Variable(f"V{new_var_number}", arg_type))
-
-            # append the combinations of the new variable with the other variables
-            for i, new_vars in enumerate(new_vars_per_arg):
-                if new_vars[0].arg_type in self._non_extendable_types:
-                    continue
-
-                new_vars_with_other_args_per_arg = (
-                    valid_vars_per_arg[:i] + [new_vars] + valid_vars_per_arg[i + 1 :]
-                )
-                var_combinations.extend(
-                    itertools.product(*new_vars_with_other_args_per_arg)
-                )
+        var_combinations_linked_to_clause = []
+        for var_combo in var_combinations:
+            if len(set(var_combo).intersection(clause.variables)) > 0:
+                var_combinations_linked_to_clause.append(var_combo)
 
         # Create literals for each variable combination
-        for vars in var_combinations:
+        for vars in var_combinations_linked_to_clause:
             variables = list(vars)
             literal = Literal(predicate, variables)
             # negated_literal = Literal(predicate, variables, negated=True)
@@ -494,3 +513,181 @@ class FOIL:
             if not item.old_negative_examples:
                 return True
         return False
+
+    # def _bind_args(literal: Literal, example: dict[str, Any], throw_if_unbound: bool = False) -> list[Any]: # noqa: E501
+    #     # Bind the arguments using the example's variable assignments
+    #     bound_args = []
+    #     for arg in literal.args:
+    #         # Check if the argument is a constant
+    #         # if so append to args
+    #         if isinstance(arg, Constant):
+    #             bound_args.append(arg.value)
+    #             continue
+
+    #         # Check if the argument is a variable in the example
+    #         # if so get value from example
+    #         if isinstance(arg, Variable) and arg.name in example:
+    #             bound_args.append(example[arg.name])
+    #             continue
+
+    #         if throw_if_unbound:
+    #             raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
+    #         else:
+    #             bound_args.append(None)
+
+    def _evaluate_literal(
+        self,
+        literal: Literal,
+        example: dict[str, Any],
+    ) -> bool:
+        """
+        Evaluate if a literal is satisfied by an example using background facts.
+        :param literal: The Literal object to evaluate.
+        :param example: A dict mapping variable names to values.
+        :param background_knowledge: A dict mapping predicate names to sets of facts.
+        :return: True if the literal is satisfied, False otherwise.
+        """
+        # Bind the arguments using the example's variable assignments
+        bound_args = []
+        for arg in literal.args:
+            # Check if the argument is a constant
+            # if so append to args
+            if isinstance(arg, Constant):
+                bound_args.append(arg.value)
+                continue
+
+            # Check if the argument is a variable in the example
+            # if so get value from example
+            if isinstance(arg, Variable) and arg.name in example:
+                bound_args.append(example[arg.name])
+                continue
+
+            raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
+
+        # If it's rule based we use rule and don't evaluate background knowledge
+        if isinstance(literal.predicate, RuleBasedPredicate):
+            if literal.negated:
+                return not literal.predicate.evaluate(*bound_args)
+            return literal.predicate.evaluate(*bound_args)
+
+        fact: bool = self._is_a_fact(literal.predicate.name, tuple(bound_args))
+
+        # Check if the bound arguments are in the predicate's facts
+        if literal.negated:
+            return not fact
+        return fact
+
+    @lru_cache(maxsize=5000000)
+    def _is_a_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+        # Retrieve the predicate's facts
+        predicate_facts = self.background_knowledge.get(predicate_name, set())
+        return bound_args in predicate_facts
+
+    def _partial_evaluate_literal(
+        self,
+        literal: Literal,
+        example: dict[str, Any],
+    ) -> bool:
+        """
+        Evaluate if literal can ever be satisfied by an example
+        :param literal: The Literal object to evaluate.
+        :param example: A dict mapping variable names to values.
+        :param background_knowledge: A dict mapping predicate names to sets of facts.
+        :return: True if the literal is satisfied, False otherwise.
+        """
+        # Bind the arguments using the example's variable assignments
+        bound_args = []
+        all_vars_bound = True
+        for arg in literal.args:
+            # Check if the argument is a constant
+            # if so append to args
+            if isinstance(arg, Constant):
+                bound_args.append(arg.value)
+                continue
+
+            # Check if the argument is a variable in the example
+            # if so get value from example
+            if isinstance(arg, Variable) and arg.name in example:
+                bound_args.append(example[arg.name])
+                continue
+
+            all_vars_bound = False
+            bound_args.append(None)
+
+        # If it's rule based we have to assume all good
+        if isinstance(literal.predicate, RuleBasedPredicate):
+            if not all_vars_bound:
+                return True
+
+            if literal.negated:
+                return not literal.predicate.evaluate(*bound_args)
+            return literal.predicate.evaluate(*bound_args)
+
+        # Check if the bound arguments are in the predicate's facts
+        possible_fact = self._is_a_possible_fact(
+            literal.predicate.name, tuple(bound_args)
+        )
+
+        if literal.negated:
+            return not possible_fact
+        return possible_fact
+
+    # @lru_cache(maxsize=5000000)
+    # def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+    #     # Retrieve the predicate's facts
+    #     predicate_facts = self.background_knowledge.get(predicate_name, set())
+    #     for fact in predicate_facts:
+    #         if self._compare_tuples_ignoring_none(bound_args, fact):
+    #             return True
+    #     return False
+
+    def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+        index = self.predicate_indices.get(predicate_name)
+        if not index:
+            return False
+        return self._search_index(index, bound_args, 0)
+
+    def _search_index(self, index, bound_args, position):
+        if "__fact__" in index:
+            return True
+        if position >= len(bound_args):
+            return False
+        arg_value = bound_args[position]
+        next_indices = []
+        if arg_value is None:
+            # Wildcard, explore all possible values at this position
+            next_indices = index.values()
+        else:
+            if arg_value in index:
+                next_indices = [index[arg_value]]
+            else:
+                return False  # No match possible
+        for next_index in next_indices:
+            if self._search_index(next_index, bound_args, position + 1):
+                return True
+        return False
+
+    @staticmethod
+    @lru_cache(maxsize=100000)
+    def _compare_tuples_ignoring_none(t1: tuple, t2: tuple):
+        for a1, a2 in zip(t1, t2):
+            if a1 is None or a2 is None:
+                continue
+            if a1 != a2:
+                return False
+        return True
+
+    def _build_predicate_indices(self) -> dict:
+        predicate_indices = {}
+        for predicate_name, facts in self.background_knowledge.items():
+            index: dict = {}
+            for fact in facts:
+                current_level = index
+                for i, value in enumerate(fact):
+                    if value not in current_level:
+                        current_level[value] = {}
+                    current_level = current_level[value]
+                # Store the fact at the deepest level
+                current_level["__fact__"] = fact
+            predicate_indices[predicate_name] = index
+        return predicate_indices

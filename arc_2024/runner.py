@@ -14,7 +14,6 @@ class TimeoutException(Exception):
 
 
 def timeout_handler(signum, _):
-    print("Signal handler called with signal:", signum)
     raise TimeoutException("Function call timed out")
 
 

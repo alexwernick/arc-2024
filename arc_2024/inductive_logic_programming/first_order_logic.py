@@ -217,50 +217,6 @@ class Literal:
         return hash((self.predicate, tuple(self.args), self.negated))
 
 
-def evaluate_literal(
-    literal: Literal,
-    example: dict[str, Any],
-    background_knowledge: dict[str, set[tuple]],
-) -> bool:
-    """
-    Evaluate if a literal is satisfied by an example using background facts.
-    :param literal: The Literal object to evaluate.
-    :param example: A dict mapping variable names to values.
-    :param background_knowledge: A dict mapping predicate names to sets of facts.
-    :return: True if the literal is satisfied, False otherwise.
-    """
-    # Bind the arguments using the example's variable assignments
-    bound_args = []
-    for arg in literal.args:
-        # Check if the argument is a constant
-        # if so append to args
-        if isinstance(arg, Constant):
-            bound_args.append(arg.value)
-            continue
-
-        # Check if the argument is a variable in the example
-        # if so get value from example
-        if isinstance(arg, Variable) and arg.name in example:
-            bound_args.append(example[arg.name])
-            continue
-
-        raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
-
-    # If it's rule based we use rule and don't evaluate background knowledge
-    if isinstance(literal.predicate, RuleBasedPredicate):
-        if literal.negated:
-            return not literal.predicate.evaluate(*bound_args)
-        return literal.predicate.evaluate(*bound_args)
-
-    # Retrieve the predicate's facts
-    predicate_facts = background_knowledge.get(literal.predicate.name, set())
-
-    # Check if the bound arguments are in the predicate's facts
-    if literal.negated:
-        return tuple(bound_args) not in predicate_facts
-    return tuple(bound_args) in predicate_facts
-
-
 class Clause:
     head: Literal
     body: List[Literal]
