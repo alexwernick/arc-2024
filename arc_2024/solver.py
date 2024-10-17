@@ -66,7 +66,7 @@ class Solver:
         inside_mask_not_overlapping_pred: Predicate
         top_left_bottom_right_diag_pred: Predicate
         bottom_left_top_right_diag_pred: Predicate
-        # shape_colour_predicates: list[Predicate]
+        shape_colour_predicates: list[Predicate]
         colour_predicates: list[RuleBasedPredicate]
         shape_size_predicates: list[Predicate]
         # inequality_predicates: list[RuleBasedPredicate]
@@ -421,13 +421,15 @@ class Solver:
                         (ex_test_number, input_shape_name, input_shape.colour)
                     )
 
-                # if input_shape.colour is not None:
-                #     for colour_pred in predicates.shape_colour_predicates:
-                #         if (
-                #             self._generate_shape_colour_pred_name(input_shape.colour)
-                #             == colour_pred.name
-                #         ):
-                #             background_knowledge[colour_pred.name].add((ex_test_number, input_shape_name)) # noqa: E501
+                if input_shape.colour is not None:
+                    for colour_pred in predicates.shape_colour_predicates:
+                        if (
+                            self._generate_shape_colour_pred_name(input_shape.colour)
+                            == colour_pred.name
+                        ):
+                            background_knowledge[colour_pred.name].add(
+                                (ex_test_number, input_shape_name)
+                            )  # noqa: E501
 
                 for shape_colour_count_pred in predicates.shape_colour_count_predicates:
                     if (
@@ -1036,17 +1038,17 @@ class Solver:
         #     "single-colour-shape", 1, [shape_arg]
         # )
 
-        # shape_colour_predicates: list[Predicate] = []
+        shape_colour_predicates: list[Predicate] = []
         colour_predicates: list[RuleBasedPredicate] = []
 
         for colour in possible_colours:
-            # shape_colour_predicates.append(
-            #     Predicate(
-            #         self._generate_shape_colour_pred_name(colour),
-            #         2,
-            #         [ex_num_arg, shape_arg],
-            #     )
-            # )
+            shape_colour_predicates.append(
+                Predicate(
+                    self._generate_shape_colour_pred_name(colour),
+                    2,
+                    [ex_num_arg, shape_arg],
+                )
+            )
 
             colour_predicates.append(
                 RuleBasedPredicate(
@@ -1297,7 +1299,7 @@ class Solver:
             inside_mask_not_overlapping_pred=inside_mask_not_overlapping_pred,
             top_left_bottom_right_diag_pred=top_left_bottom_right_diag_pred,
             bottom_left_top_right_diag_pred=bottom_left_top_right_diag_pred,
-            # shape_colour_predicates=shape_colour_predicates,
+            shape_colour_predicates=shape_colour_predicates,
             colour_predicates=colour_predicates,
             shape_size_predicates=shape_size_predicates,
             # inequality_predicates=inequality_predicates,

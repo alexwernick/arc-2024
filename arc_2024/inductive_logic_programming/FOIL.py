@@ -16,7 +16,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
 
 
 class FOIL:
-    _DEFAULT_TYPE_EXTENSION_LIMIT = 4
+    _DEFAULT_TYPE_EXTENSION_LIMIT = 8
 
     target_literal: Literal
     predicates: list[Predicate]
@@ -332,7 +332,7 @@ class FOIL:
             for value in new_var.arg_type.possible_values(example):
                 example[new_var.name] = value
                 if self._partial_evaluate_literal(literal_to_add, example):
-                    new_extended_examples.append(example)
+                    new_extended_examples.append(copy.deepcopy(example))
 
         return self._extend_example_with_new_vars(
             new_vars, new_extended_examples, literal_to_add
@@ -647,7 +647,13 @@ class FOIL:
             return False
         return self._search_index(index, bound_args, 0)
 
-    def _search_index(self, index, bound_args, position):
+    # def _is_a_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+    #     index = self.predicate_indices.get(predicate_name)
+    #     if not index:
+    #         return False
+    #     return self._search_index(index, bound_args, 0, allow_none=False)
+
+    def _search_index(self, index, bound_args, position, allow_none=True):
         if "__fact__" in index:
             return True
         if position >= len(bound_args):
@@ -655,6 +661,8 @@ class FOIL:
         arg_value = bound_args[position]
         next_indices = []
         if arg_value is None:
+            if not allow_none:
+                raise ValueError("Unexpected None value in bound arguments")
             # Wildcard, explore all possible values at this position
             next_indices = index.values()
         else:
