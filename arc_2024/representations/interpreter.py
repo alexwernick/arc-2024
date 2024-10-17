@@ -73,26 +73,26 @@ class Interpreter:
             self.test_inputs
         )
 
-        seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.inputs
-        )
-        seperator_outputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.outputs
-        )
-        seperator_test_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.test_inputs
-        )
+        # seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
+        #     self.inputs
+        # )
+        # seperator_outputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
+        #     self.outputs
+        # )
+        # seperator_test_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(  # noqa: E501
+        #     self.test_inputs
+        # )
 
         # if the two interpretations are different we return both
-        seperator_local_search_different = (
-            self._shape_interpretations_not_subset(
-                local_search_inputs, seperator_inputs
-            )
-            # or self._shape_interpretations_different(local_search_outputs, seperator_outputs) # noqa: E501
-            or self._shape_interpretations_not_subset(
-                local_search_test_inputs, seperator_test_inputs
-            )
-        )
+        # seperator_local_search_different = (
+        #     self._shape_interpretations_not_subset(
+        #         local_search_inputs, seperator_inputs
+        #     )
+        #     # or self._shape_interpretations_different(local_search_outputs, seperator_outputs) # noqa: E501
+        #     or self._shape_interpretations_not_subset(
+        #         local_search_test_inputs, seperator_test_inputs
+        #     )
+        # )
 
         self._interpret_and_enrich_with_shape_groups(
             local_search_inputs, local_search_test_inputs
@@ -106,18 +106,18 @@ class Interpreter:
             )
         )
 
-        if seperator_local_search_different:
-            self._interpret_and_enrich_with_shape_groups(
-                seperator_inputs, seperator_test_inputs
-            )
-            interpretations.append(
-                self.InterpretedShapes(
-                    seperator_inputs,
-                    seperator_outputs,
-                    seperator_test_inputs,
-                    Interpreter.InterpretType.SEPERATOR,
-                )
-            )
+        # if seperator_local_search_different:
+        #     self._interpret_and_enrich_with_shape_groups(
+        #         seperator_inputs, seperator_test_inputs
+        #     )
+        #     interpretations.append(
+        #         self.InterpretedShapes(
+        #             seperator_inputs,
+        #             seperator_outputs,
+        #             seperator_test_inputs,
+        #             Interpreter.InterpretType.SEPERATOR,
+        #         )
+        #     )
 
         return interpretations
 

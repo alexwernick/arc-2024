@@ -1,3 +1,5 @@
+import signal
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -5,6 +7,26 @@ from arc_2024.data_management.data_manager import DataManager
 from arc_2024.grid_size_solver import GridSizeSolver
 from arc_2024.representations.interpreter import Interpreter
 from arc_2024.solver import Solver
+
+
+class TimeoutException(Exception):
+    pass
+
+
+def timeout_handler(signum, _):
+    print("Signal handler called with signal:", signum)
+    raise TimeoutException("Function call timed out")
+
+
+def function_with_timeout(timeout, func, *args, **kwargs):
+    # Set the signal handler and an alarm
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout)
+    try:
+        result = func(*args, **kwargs)
+        return result
+    finally:
+        signal.alarm(0)  # Disable the alarm
 
 
 def verify_solution(
@@ -26,6 +48,8 @@ def run(
     split_tasks: bool,
     verify_solutions: bool,
     submit_empty_solutions: bool = False,
+    run_with_timeout: bool = False,
+    timeout_seconds: int = 180,
 ):
     data_manager = DataManager(input_data_path, output_data_path, temp_data_path)
 
@@ -65,7 +89,14 @@ def run(
                     test_inputs_shapes,
                 )
                 try:
-                    grid_size_solutions[task_id] = grid_size_solver.solve(beam_width=2)
+                    if run_with_timeout:
+                        grid_size_solutions[task_id] = function_with_timeout(
+                            timeout_seconds, grid_size_solver.solve, beam_width=2
+                        )
+                    else:
+                        grid_size_solutions[task_id] = grid_size_solver.solve(
+                            beam_width=2
+                        )
                     print(
                         f"Task {task_id} grid size was solved using interpret_type {interpret_type.name}"  # noqa: E501
                     )
@@ -94,7 +125,12 @@ def run(
                 test_inputs_shapes,
             )
             try:
-                results = solver.solve(beam_width=2)
+                if run_with_timeout:
+                    results = function_with_timeout(
+                        timeout_seconds, solver.solve, beam_width=2
+                    )
+                else:
+                    results = solver.solve(beam_width=2)
                 if verify_solutions:
                     verify_solution(results, test_outputs, task_id)
                 data_manager.update_solution_file(
