@@ -21,7 +21,7 @@ class FOIL:
     target_literal: Literal
     predicates: list[Predicate]
     background_knowledge: dict[str, set[tuple]]
-    predicate_indices: dict
+    background_knowledge_indices: dict
     allow_recursion: bool
     beam_width: int
     _max_clause_length: int
@@ -61,7 +61,7 @@ class FOIL:
         self.target_literal = target_literal
         self.predicates = predicates
         self.background_knowledge = background_knowledge
-        self.predicate_indices = self._build_predicate_indices()
+        self.background_knowledge_indices = self._build_background_knowledge_indices()
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
         self._max_clause_length = max_clause_length
@@ -297,15 +297,15 @@ class FOIL:
         new_vars: list[Variable] = []
 
         for arg in literal_to_add.args:
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                continue
-
             # Check if the argument is a variable in the example
             # if so get value from example
             if isinstance(arg, Variable) and arg.name not in example:
                 new_vars.append(arg)
+                continue
+
+            # Check if the argument is a constant
+            # if so append to args
+            if isinstance(arg, Constant):
                 continue
 
         return self._extend_example_with_new_vars(
@@ -318,25 +318,34 @@ class FOIL:
         extended_examples: list[dict[str, Any]],
         literal_to_add: Literal,
     ) -> list[dict[str, Any]]:
-        valid_extended_examples = []
-        if len(new_vars) == 0:
+        valid_extended_examples: list[dict[str, Any]] = []
+
+        if len(new_vars) > 1:
+            new_extended_examples: list[dict[str, Any]] = []
+            new_var = new_vars.pop()
             for example in extended_examples:
-                if self._evaluate_literal(literal_to_add, example):
-                    valid_extended_examples.append(example)  # no new variables to add
+                for value in new_var.arg_type.possible_values(example):
+                    example[new_var.name] = value
+                    if self._partial_evaluate_literal(literal_to_add, example):
+                        new_extended_examples.append(copy.copy(example))
+
+            return self._extend_example_with_new_vars(
+                new_vars, new_extended_examples, literal_to_add
+            )
+
+        if len(new_vars) == 1:
+            new_var = new_vars.pop()
+            for example in extended_examples:
+                for value in new_var.arg_type.possible_values(example):
+                    example[new_var.name] = value
+                    if self._evaluate_literal(literal_to_add, example):
+                        valid_extended_examples.append(copy.copy(example))
             return valid_extended_examples
 
-        new_var = new_vars.pop()
-        new_extended_examples: list[dict[str, Any]] = []
-
         for example in extended_examples:
-            for value in new_var.arg_type.possible_values(example):
-                example[new_var.name] = value
-                if self._partial_evaluate_literal(literal_to_add, example):
-                    new_extended_examples.append(copy.deepcopy(example))
-
-        return self._extend_example_with_new_vars(
-            new_vars, new_extended_examples, literal_to_add
-        )
+            if self._evaluate_literal(literal_to_add, example):
+                valid_extended_examples.append(example)  # no new variables to add
+        return valid_extended_examples
 
     def _new_literals_for_predicate(
         self,
@@ -354,11 +363,6 @@ class FOIL:
         current_vars = list(clause.variables)
         # get the literals already used in the clause so we don't repeat
         used_literals = set(clause.body)
-
-        # if isinstance(predicate, RuleBasedPredicate):
-        #     # Rule based preds need bound args when
-        #     # checking coverage
-        #     allow_variable_extension = False
 
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
@@ -514,27 +518,6 @@ class FOIL:
                 return True
         return False
 
-    # def _bind_args(literal: Literal, example: dict[str, Any], throw_if_unbound: bool = False) -> list[Any]: # noqa: E501
-    #     # Bind the arguments using the example's variable assignments
-    #     bound_args = []
-    #     for arg in literal.args:
-    #         # Check if the argument is a constant
-    #         # if so append to args
-    #         if isinstance(arg, Constant):
-    #             bound_args.append(arg.value)
-    #             continue
-
-    #         # Check if the argument is a variable in the example
-    #         # if so get value from example
-    #         if isinstance(arg, Variable) and arg.name in example:
-    #             bound_args.append(example[arg.name])
-    #             continue
-
-    #         if throw_if_unbound:
-    #             raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
-    #         else:
-    #             bound_args.append(None)
-
     def _evaluate_literal(
         self,
         literal: Literal,
@@ -550,16 +533,16 @@ class FOIL:
         # Bind the arguments using the example's variable assignments
         bound_args = []
         for arg in literal.args:
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                bound_args.append(arg.value)
-                continue
-
             # Check if the argument is a variable in the example
             # if so get value from example
             if isinstance(arg, Variable) and arg.name in example:
                 bound_args.append(example[arg.name])
+                continue
+
+            # Check if the argument is a constant
+            # if so append to args
+            if isinstance(arg, Constant):
+                bound_args.append(arg.value)
                 continue
 
             raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
@@ -632,26 +615,11 @@ class FOIL:
             return not possible_fact
         return possible_fact
 
-    # @lru_cache(maxsize=5000000)
-    # def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
-    #     # Retrieve the predicate's facts
-    #     predicate_facts = self.background_knowledge.get(predicate_name, set())
-    #     for fact in predicate_facts:
-    #         if self._compare_tuples_ignoring_none(bound_args, fact):
-    #             return True
-    #     return False
-
     def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
-        index = self.predicate_indices.get(predicate_name)
+        index = self.background_knowledge_indices.get(predicate_name)
         if not index:
             return False
         return self._search_index(index, bound_args, 0)
-
-    # def _is_a_fact(self, predicate_name: str, bound_args: tuple) -> bool:
-    #     index = self.predicate_indices.get(predicate_name)
-    #     if not index:
-    #         return False
-    #     return self._search_index(index, bound_args, 0, allow_none=False)
 
     def _search_index(self, index, bound_args, position, allow_none=True):
         if "__fact__" in index:
@@ -675,18 +643,8 @@ class FOIL:
                 return True
         return False
 
-    @staticmethod
-    @lru_cache(maxsize=100000)
-    def _compare_tuples_ignoring_none(t1: tuple, t2: tuple):
-        for a1, a2 in zip(t1, t2):
-            if a1 is None or a2 is None:
-                continue
-            if a1 != a2:
-                return False
-        return True
-
-    def _build_predicate_indices(self) -> dict:
-        predicate_indices = {}
+    def _build_background_knowledge_indices(self) -> dict:
+        bk_indices = {}
         for predicate_name, facts in self.background_knowledge.items():
             index: dict = {}
             for fact in facts:
@@ -697,5 +655,5 @@ class FOIL:
                     current_level = current_level[value]
                 # Store the fact at the deepest level
                 current_level["__fact__"] = fact
-            predicate_indices[predicate_name] = index
-        return predicate_indices
+            bk_indices[predicate_name] = index
+        return bk_indices

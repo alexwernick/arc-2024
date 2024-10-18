@@ -107,8 +107,8 @@ def test_new_literals_for_predicate():
 
     literals = foil._new_literals_for_predicate(pre_with_one_arg, clause)
 
-    assert len(literals) == 2  # bug one
+    assert len(literals) == 2
 
     literals = foil._new_literals_for_predicate(pre_with_three_arg, clause)
 
-    assert len(literals) == 2  # bug one
+    assert len(literals) == 2
