@@ -406,6 +406,8 @@ class FOIL:
         for vars in var_combinations_linked_to_clause:
             variables = list(vars)
             literal = Literal(predicate, variables)
+            if literal in clause.incompatable_literals:
+                continue
             # negated_literal = Literal(predicate, variables, negated=True)
             # Avoid adding duplicate literals
             if literal not in used_literals:

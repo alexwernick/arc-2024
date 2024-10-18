@@ -59,8 +59,12 @@ class Solver:
         mask_overlapping_pred: Predicate
         mask_overlapping_top_inline_top_pred: Predicate
         mask_overlapping_bot_inline_bot_pred: Predicate
+        mask_overlapping_left_inline_left_pred: Predicate
+        mask_overlapping_right_inline_right_pred: Predicate
         mask_overlapping_bot_top_touching_pred: Predicate
         mask_overlapping_top_bot_touching_pred: Predicate
+        mask_overlapping_right_left_touching_pred: Predicate
+        mask_overlapping_left_right_touching_pred: Predicate
         inside_mask_pred: Predicate
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
@@ -74,6 +78,9 @@ class Solver:
         grid_colour_count_predicates: list[Predicate]
         shape_group_predicates: list[Predicate]
         shape_colour_pred: Predicate
+        shape_spanning_line_pred: Predicate
+        shape_vertical_line_pred: Predicate
+        shape_horizontal_line_pred: Predicate
         vertical_center_distance_more_than_pred: Predicate
         vertical_center_distance_less_than_pred: Predicate
         horizontal_center_distance_more_than_pred: Predicate
@@ -146,7 +153,10 @@ class Solver:
         variables = self._create_variables(arg_types)
         target_literal = self._create_target_literal(arg_types, variables)
         predicates = self._create_predicates(arg_types, possible_colours)
+        self._add_predictae_incompatibilities(predicates)
         predicate_list = predicates.to_list()
+        if self._has_duplicate_names(predicate_list):
+            raise ValueError("Duplicate predicate names")
         examples = self._create_examples(possible_colours, variables)
 
         # Background facts for predicates
@@ -398,12 +408,13 @@ class Solver:
         self,
         background_knowledge: BackgroundKnowledgeType,
         outputs: list[NDArray[np.int16]],
+        inputs: list[NDArray[np.int16]],
         inputs_shapes: list[list[Shape]],
         predicates: Predicates,
         ex_number_offset: int = 0,
     ) -> None:
-        for ex_number, (input_shapes, output_grid) in enumerate(
-            zip(inputs_shapes, outputs)
+        for ex_number, (input_shapes, output_grid, input_grid) in enumerate(
+            zip(inputs_shapes, outputs, inputs)
         ):
             ex_test_number = ex_number + ex_number_offset
 
@@ -420,6 +431,36 @@ class Solver:
                     background_knowledge[predicates.shape_colour_pred.name].add(
                         (ex_test_number, input_shape_name, input_shape.colour)
                     )
+
+                # should only be one colour?
+                is_vertical_line: bool = (
+                    input_shape.height == input_grid.shape[0]
+                    and input_shape.width == 1
+                    and input_shape.num_of_coloured_pixels == input_shape.height
+                    and input_grid.shape[1] > 2
+                )
+
+                is_horizontal_line: bool = (
+                    input_shape.width == input_grid.shape[1]
+                    and input_shape.height == 1
+                    and input_shape.num_of_coloured_pixels == input_shape.width
+                    and input_grid.shape[0] > 2
+                )
+
+                if is_vertical_line or is_horizontal_line:
+                    background_knowledge[predicates.shape_spanning_line_pred.name].add(
+                        (ex_test_number, input_shape_name)
+                    )
+
+                if is_vertical_line:
+                    background_knowledge[predicates.shape_vertical_line_pred.name].add(
+                        (ex_test_number, input_shape_name)
+                    )
+
+                if is_horizontal_line:
+                    background_knowledge[
+                        predicates.shape_horizontal_line_pred.name
+                    ].add((ex_test_number, input_shape_name))
 
                 if input_shape.colour is not None:
                     for colour_pred in predicates.shape_colour_predicates:
@@ -777,8 +818,12 @@ class Solver:
             ex_number,
             predicates.mask_overlapping_top_inline_top_pred,
             predicates.mask_overlapping_bot_inline_bot_pred,
+            predicates.mask_overlapping_left_inline_left_pred,
+            predicates.mask_overlapping_right_inline_right_pred,
             predicates.mask_overlapping_bot_top_touching_pred,
             predicates.mask_overlapping_top_bot_touching_pred,
+            predicates.mask_overlapping_right_left_touching_pred,
+            predicates.mask_overlapping_left_right_touching_pred,
         )
 
     @staticmethod
@@ -793,16 +838,29 @@ class Solver:
         ex_number: int,
         mask_overlapping_top_inline_top_pred: Predicate,
         mask_overlapping_bot_inline_bot_pred: Predicate,
+        mask_overlapping_left_inline_left_pred: Predicate,
+        mask_overlapping_right_inline_right_pred: Predicate,
         mask_overlapping_bot_top_touching_pred: Predicate,
         mask_overlapping_top_bot_touching_pred: Predicate,
+        mask_overlapping_right_left_touching_pred: Predicate,
+        mask_overlapping_left_right_touching_pred: Predicate,
     ):
         distance_between_tops = input_shape_2.top_most - input_shape_1.top_most
         distance_between_bottoms = input_shape_2.bottom_most - input_shape_1.bottom_most
+        distance_between_lefts = input_shape_2.left_most - input_shape_1.left_most
+        distance_between_rights = input_shape_2.right_most - input_shape_1.right_most
+
         distance_between_bot_top_touching = (
             input_shape_2.top_most - input_shape_1.bottom_most - 1
         )
         distance_between_top_bot_touching = (
             input_shape_2.bottom_most - input_shape_1.top_most + 1
+        )
+        distance_between_right_left_touching = (
+            input_shape_2.left_most - input_shape_1.right_most - 1
+        )
+        distance_between_left_right_touching = (
+            input_shape_2.right_most - input_shape_1.left_most + 1
         )
 
         if input_shape_1.is_mask_overlapping_ij(
@@ -822,8 +880,36 @@ class Solver:
         if input_shape_1.is_mask_overlapping_ij(
             output_i - distance_between_bottoms, output_j
         ):
-            # in shape 1 and inline with shape 2
+            # is shape 1 and inline with shape 2
             background_knowledge[mask_overlapping_bot_inline_bot_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i, output_j - distance_between_lefts
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_left_inline_left_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i, output_j - distance_between_rights
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_right_inline_right_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -852,6 +938,34 @@ class Solver:
         ):
             # in shape 1 and inline with shape 2
             background_knowledge[mask_overlapping_top_bot_touching_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i, output_j - distance_between_right_left_touching
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_right_left_touching_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name_1,
+                    input_shape_name_2,
+                )
+            )
+
+        if input_shape_1.is_mask_overlapping_ij(
+            output_i, output_j - distance_between_left_right_touching
+        ):
+            # in shape 1 and inline with shape 2
+            background_knowledge[mask_overlapping_left_right_touching_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -993,6 +1107,16 @@ class Solver:
             5,
             [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
         )
+        mask_overlapping_left_inline_left_pred = Predicate(
+            "mask-overlapping-left-inline-left-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_right_inline_right_pred = Predicate(
+            "mask-overlapping-right-inline-right-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
         mask_overlapping_bot_top_touching_pred = Predicate(
             "mask-overlapping-bot-top-touching-shape",
             5,
@@ -1000,6 +1124,16 @@ class Solver:
         )
         mask_overlapping_top_bot_touching_pred = Predicate(
             "mask-overlapping-top-bot-touching-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_right_left_touching_pred = Predicate(
+            "mask-overlapping-right-left-touching-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
+        )
+        mask_overlapping_left_right_touching_pred = Predicate(
+            "mask-overlapping-left-right-touching-shape",
             5,
             [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
         )
@@ -1030,6 +1164,21 @@ class Solver:
             "shape-colour",
             3,
             [ex_num_arg, shape_arg, colour_type_arg],
+        )
+        shape_spanning_line_pred = Predicate(
+            "shape-spanning-line",
+            2,
+            [ex_num_arg, shape_arg],
+        )
+        shape_vertical_line_pred = Predicate(
+            "shape-vertical-line",
+            2,
+            [ex_num_arg, shape_arg],
+        )
+        shape_horizontal_line_pred = Predicate(
+            "shape-horizontal-line",
+            2,
+            [ex_num_arg, shape_arg],
         )
         # mixed_colour_shape_pred = Predicate(
         #     "mixed-colour-shape, 1, [shape_arg]
@@ -1292,8 +1441,12 @@ class Solver:
             mask_overlapping_pred=mask_overlapping_pred,
             mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
             mask_overlapping_bot_inline_bot_pred=mask_overlapping_bot_inline_bot_pred,
+            mask_overlapping_left_inline_left_pred=mask_overlapping_left_inline_left_pred,  # noqa: E501
+            mask_overlapping_right_inline_right_pred=mask_overlapping_right_inline_right_pred,  # noqa: E501
             mask_overlapping_bot_top_touching_pred=mask_overlapping_bot_top_touching_pred,  # noqa: E501
             mask_overlapping_top_bot_touching_pred=mask_overlapping_top_bot_touching_pred,  # noqa: E501
+            mask_overlapping_right_left_touching_pred=mask_overlapping_right_left_touching_pred,  # noqa: E501
+            mask_overlapping_left_right_touching_pred=mask_overlapping_left_right_touching_pred,  # noqa: E501
             inside_mask_pred=inside_mask_pred,
             inside_blank_space_pred=inside_blank_space_pred,
             inside_mask_not_overlapping_pred=inside_mask_not_overlapping_pred,
@@ -1307,6 +1460,9 @@ class Solver:
             grid_colour_count_predicates=grid_colour_count_predicates,
             shape_group_predicates=shape_group_predicates,
             shape_colour_pred=shape_colour_pred,
+            shape_spanning_line_pred=shape_spanning_line_pred,
+            shape_vertical_line_pred=shape_vertical_line_pred,
+            shape_horizontal_line_pred=shape_horizontal_line_pred,
             vertical_center_distance_more_than_pred=vertical_center_distance_more_than_pred,  # noqa: E501
             vertical_center_distance_less_than_pred=vertical_center_distance_less_than_pred,  # noqa: E501
             horizontal_center_distance_more_than_pred=horizontal_center_distance_more_than_pred,  # noqa: E501
@@ -1375,7 +1531,11 @@ class Solver:
 
         # bk relating input shapes and i,j outputs
         self._append_background_knowledge_for_shapes(
-            background_knowledge, self.outputs, self.inputs_shapes, predicates
+            background_knowledge,
+            self.outputs,
+            self.inputs,
+            self.inputs_shapes,
+            predicates,
         )
 
         # Raw input bk
@@ -1397,6 +1557,7 @@ class Solver:
         self._append_background_knowledge_for_shapes(
             background_knowledge,
             self.empty_test_outputs,
+            self.test_inputs,
             self.test_inputs_shapes,
             predicates,
             ex_number_offset=self._TEST_EX_NUMBER_OFFSET,
@@ -1602,3 +1763,267 @@ class Solver:
     def _generate_shape_name(example_number: int, is_input: bool, index: int) -> str:
         inp_str = "input" if is_input else "output"
         return f"{example_number}_{inp_str}_{index}"
+
+    @staticmethod
+    def _has_duplicate_names(predicate_list: list[Predicate]):
+        names = set()
+        for pred in predicate_list:
+            name = pred.name
+            if name in names:
+                return True
+            names.add(name)
+        return False
+
+    @staticmethod
+    def _add_predictae_incompatibilities(predicates: Predicates):
+        above_pred = predicates.above_pred
+        below_pred = predicates.below_pred
+        left_of_pred = predicates.left_of_pred
+        right_of_pred = predicates.right_of_pred
+        inline_diagonally_above_right_pred = (
+            predicates.inline_diagonally_above_right_pred
+        )
+        inline_diagonally_above_left_pred = predicates.inline_diagonally_above_left_pred
+        inline_diagonally_below_right_pred = (
+            predicates.inline_diagonally_below_right_pred
+        )
+        inline_diagonally_below_left_pred = predicates.inline_diagonally_below_left_pred
+        inline_above_vertically_pred = predicates.inline_above_vertically_pred
+        inline_below_vertically_pred = predicates.inline_below_vertically_pred
+        inline_left_horizontally_pred = predicates.inline_left_horizontally_pred
+        inline_right_horizontally_pred = predicates.inline_right_horizontally_pred
+        mask_overlapping_pred = predicates.mask_overlapping_pred
+        mask_overlapping_bot_top_touching_pred = (
+            predicates.mask_overlapping_bot_top_touching_pred
+        )
+        mask_overlapping_top_bot_touching_pred = (
+            predicates.mask_overlapping_top_bot_touching_pred
+        )
+        mask_overlapping_right_left_touching_pred = (
+            predicates.mask_overlapping_right_left_touching_pred
+        )
+        mask_overlapping_left_right_touching_pred = (
+            predicates.mask_overlapping_left_right_touching_pred
+        )
+        inside_blank_space_pred = predicates.inside_blank_space_pred
+        inside_mask_not_overlapping_pred = predicates.inside_mask_not_overlapping_pred
+        colour_predicates = predicates.colour_predicates
+        shape_size_predicates = predicates.shape_size_predicates
+        shape_colour_count_predicates = predicates.shape_colour_count_predicates
+        grid_colour_count_predicates = predicates.grid_colour_count_predicates
+        shape_vertical_line_pred = predicates.shape_vertical_line_pred
+        shape_horizontal_line_pred = predicates.shape_horizontal_line_pred
+
+        above_pred.add_incompatible_predicates(
+            {
+                below_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+                inline_below_vertically_pred,
+            }
+        )
+
+        below_pred.add_incompatible_predicates(
+            {
+                above_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_above_vertically_pred,
+            }
+        )
+
+        left_of_pred.add_incompatible_predicates(
+            {
+                right_of_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_below_right_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        right_of_pred.add_incompatible_predicates(
+            {
+                left_of_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_left_pred,
+                inline_left_horizontally_pred,
+            }
+        )
+
+        inline_diagonally_above_right_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+                below_pred,
+                left_of_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        inline_diagonally_above_left_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_right_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+                below_pred,
+                right_of_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        inline_diagonally_below_right_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_left_pred,
+                above_pred,
+                left_of_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        inline_diagonally_below_left_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                above_pred,
+                right_of_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        inline_above_vertically_pred.add_incompatible_predicates(
+            {
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+                left_of_pred,
+                right_of_pred,
+                below_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        inline_below_vertically_pred.add_incompatible_predicates(
+            {
+                inline_above_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+                left_of_pred,
+                right_of_pred,
+                above_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        inline_left_horizontally_pred.add_incompatible_predicates(
+            {
+                inline_right_horizontally_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                above_pred,
+                below_pred,
+                right_of_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        inline_right_horizontally_pred.add_incompatible_predicates(
+            {
+                inline_left_horizontally_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                above_pred,
+                below_pred,
+                left_of_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        mask_overlapping_bot_top_touching_pred.add_incompatible_predicates(
+            {
+                mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+                mask_overlapping_left_right_touching_pred,
+            }
+        )
+
+        mask_overlapping_top_bot_touching_pred.add_incompatible_predicates(
+            {
+                mask_overlapping_bot_top_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+                mask_overlapping_left_right_touching_pred,
+            }
+        )
+
+        mask_overlapping_right_left_touching_pred.add_incompatible_predicates(
+            {
+                mask_overlapping_bot_top_touching_pred,
+                mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_left_right_touching_pred,
+            }
+        )
+
+        mask_overlapping_left_right_touching_pred.add_incompatible_predicates(
+            {
+                mask_overlapping_bot_top_touching_pred,
+                mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+            }
+        )
+
+        mask_overlapping_pred.add_incompatible_predicate(inside_blank_space_pred)
+        inside_blank_space_pred.add_incompatible_predicate(mask_overlapping_pred)
+        inside_mask_not_overlapping_pred.add_incompatible_predicate(
+            mask_overlapping_pred
+        )
+        shape_vertical_line_pred.add_incompatible_predicate(shape_horizontal_line_pred)
+        shape_horizontal_line_pred.add_incompatible_predicate(shape_vertical_line_pred)
+
+        for col_pred_1 in colour_predicates:
+            for col_pred_2 in colour_predicates:
+                if col_pred_1 != col_pred_2:
+                    col_pred_1.add_incompatible_predicate(col_pred_2)
+
+        for shape_size_1 in shape_size_predicates:
+            for shape_size_2 in shape_size_predicates:
+                if shape_size_1 != shape_size_2:
+                    shape_size_1.add_incompatible_predicate(shape_size_2)
+
+        for shape_colour_count_1 in shape_colour_count_predicates:
+            for shape_colour_count_2 in shape_colour_count_predicates:
+                if shape_colour_count_1 != shape_colour_count_2:
+                    shape_colour_count_1.add_incompatible_predicate(
+                        shape_colour_count_2
+                    )
+
+        for grid_colour_count_1 in grid_colour_count_predicates:
+            for grid_colour_count_2 in grid_colour_count_predicates:
+                if grid_colour_count_1 != grid_colour_count_2:
+                    grid_colour_count_1.add_incompatible_predicate(grid_colour_count_2)

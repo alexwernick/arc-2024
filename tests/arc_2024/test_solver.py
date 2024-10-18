@@ -27,6 +27,7 @@ from arc_2024.solver import Solver
         # ("0d3d703e", [np.zeros((3, 3), dtype=np.int16)]),
         # ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]),
         ("1caeab9d", [np.zeros((10, 10), dtype=np.int16)]),
+        ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
     ],
 )
 def test_solver(task_id, empty_test_outputs):
@@ -94,6 +95,16 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex1():
         0,
         [],
     )
+    mask_overlapping_left_inline_left_pred = Predicate(
+        "mask-overlapping-left-inline-left-shape",
+        0,
+        [],
+    )
+    mask_overlapping_right_inline_right_pred = Predicate(
+        "mask-overlapping-right-inline-right-shape",
+        0,
+        [],
+    )
     mask_overlapping_bot_top_touching_pred = Predicate(
         "mask-overlapping-bot-top-touching-shape",
         0,
@@ -101,6 +112,16 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex1():
     )
     mask_overlapping_top_bot_touching_pred = Predicate(
         "mask-overlapping-top-bot-touching-shape",
+        0,
+        [],
+    )
+    mask_overlapping_right_left_touching_pred = Predicate(
+        "mask-overlapping-right-left-touching-shape",
+        0,
+        [],
+    )
+    mask_overlapping_left_right_touching_pred = Predicate(
+        "mask-overlapping-left-right-touching-shape",
         0,
         [],
     )
@@ -120,8 +141,12 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex1():
                 ex_num,
                 mask_overlapping_top_inline_top_pred,
                 mask_overlapping_bot_inline_bot_pred,
+                mask_overlapping_left_inline_left_pred,
+                mask_overlapping_right_inline_right_pred,
                 mask_overlapping_bot_top_touching_pred,
                 mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+                mask_overlapping_left_right_touching_pred,
             )
 
     mask_overlapping_top_inline_top_set = {
@@ -132,11 +157,27 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex1():
         (ex_num, 2, 6, shape_name_1, shape_name_2),
         (ex_num, 3, 6, shape_name_1, shape_name_2),
     }
+    mask_overlapping_left_inline_left_set = {
+        (ex_num, 3, 1, shape_name_1, shape_name_2),
+        (ex_num, 4, 1, shape_name_1, shape_name_2),
+    }
+    mask_overlapping_right_inline_right_set = {
+        (ex_num, 3, 1, shape_name_1, shape_name_2),
+        (ex_num, 4, 1, shape_name_1, shape_name_2),
+    }
     mask_overlapping_bot_top_touching_set = {
         (ex_num, 0, 6, shape_name_1, shape_name_2),
         (ex_num, 1, 6, shape_name_1, shape_name_2),
     }
     mask_overlapping_top_bot_touching_set = {(ex_num, 4, 6, shape_name_1, shape_name_2)}
+    mask_overlapping_right_left_touching_set = {
+        (ex_num, 3, 0, shape_name_1, shape_name_2),
+        (ex_num, 4, 0, shape_name_1, shape_name_2),
+    }
+    mask_overlapping_left_right_touching_set = {
+        (ex_num, 3, 2, shape_name_1, shape_name_2),
+        (ex_num, 4, 2, shape_name_1, shape_name_2),
+    }
 
     assert (
         background_knowledge[mask_overlapping_top_inline_top_pred.name]
@@ -147,12 +188,28 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex1():
         == mask_overlapping_bot_inline_bot_set
     )
     assert (
+        background_knowledge[mask_overlapping_left_inline_left_pred.name]
+        == mask_overlapping_left_inline_left_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_right_inline_right_pred.name]
+        == mask_overlapping_right_inline_right_set
+    )
+    assert (
         background_knowledge[mask_overlapping_bot_top_touching_pred.name]
         == mask_overlapping_bot_top_touching_set
     )
     assert (
         background_knowledge[mask_overlapping_top_bot_touching_pred.name]
         == mask_overlapping_top_bot_touching_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_right_left_touching_pred.name]
+        == mask_overlapping_right_left_touching_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_left_right_touching_pred.name]
+        == mask_overlapping_left_right_touching_set
     )
 
 
@@ -178,6 +235,16 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
         0,
         [],
     )
+    mask_overlapping_left_inline_left_pred = Predicate(
+        "mask-overlapping-left-inline-left-shape",
+        0,
+        [],
+    )
+    mask_overlapping_right_inline_right_pred = Predicate(
+        "mask-overlapping-right-inline-right-shape",
+        0,
+        [],
+    )
     mask_overlapping_bot_top_touching_pred = Predicate(
         "mask-overlapping-bot-top-touching-shape",
         0,
@@ -185,6 +252,16 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
     )
     mask_overlapping_top_bot_touching_pred = Predicate(
         "mask-overlapping-top-bot-touching-shape",
+        0,
+        [],
+    )
+    mask_overlapping_right_left_touching_pred = Predicate(
+        "mask-overlapping-right-left-touching-shape",
+        0,
+        [],
+    )
+    mask_overlapping_left_right_touching_pred = Predicate(
+        "mask-overlapping-left-right-touching-shape",
         0,
         [],
     )
@@ -204,8 +281,12 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
                 ex_num,
                 mask_overlapping_top_inline_top_pred,
                 mask_overlapping_bot_inline_bot_pred,
+                mask_overlapping_left_inline_left_pred,
+                mask_overlapping_right_inline_right_pred,
                 mask_overlapping_bot_top_touching_pred,
                 mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+                mask_overlapping_left_right_touching_pred,
             )
 
     mask_overlapping_top_inline_top_set = {
@@ -220,6 +301,18 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
         (ex_num, 6, 3, shape_name_1, shape_name_2),
     }
 
+    mask_overlapping_left_inline_left_set = {
+        (ex_num, 2, 4, shape_name_1, shape_name_2),
+        (ex_num, 2, 5, shape_name_1, shape_name_2),
+        (ex_num, 2, 6, shape_name_1, shape_name_2),
+    }
+
+    mask_overlapping_right_inline_right_set = {
+        (ex_num, 2, 4, shape_name_1, shape_name_2),
+        (ex_num, 2, 5, shape_name_1, shape_name_2),
+        (ex_num, 2, 6, shape_name_1, shape_name_2),
+    }
+
     mask_overlapping_bot_top_touching_set = {
         (ex_num, 4, 1, shape_name_1, shape_name_2),
         (ex_num, 4, 2, shape_name_1, shape_name_2),
@@ -232,6 +325,18 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
         (ex_num, 7, 3, shape_name_1, shape_name_2),
     }
 
+    mask_overlapping_right_left_touching_set = {
+        (ex_num, 2, 1, shape_name_1, shape_name_2),
+        (ex_num, 2, 2, shape_name_1, shape_name_2),
+        (ex_num, 2, 3, shape_name_1, shape_name_2),
+    }
+
+    mask_overlapping_left_right_touching_set = {
+        (ex_num, 2, 7, shape_name_1, shape_name_2),
+        (ex_num, 2, 8, shape_name_1, shape_name_2),
+        (ex_num, 2, 9, shape_name_1, shape_name_2),
+    }
+
     assert (
         background_knowledge[mask_overlapping_top_inline_top_pred.name]
         == mask_overlapping_top_inline_top_set
@@ -241,10 +346,26 @@ def test_append_background_knowledge_for_mask_inline_with_shape_ex2():
         == mask_overlapping_bot_inline_bot_set
     )
     assert (
+        background_knowledge[mask_overlapping_left_inline_left_pred.name]
+        == mask_overlapping_left_inline_left_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_right_inline_right_pred.name]
+        == mask_overlapping_right_inline_right_set
+    )
+    assert (
         background_knowledge[mask_overlapping_bot_top_touching_pred.name]
         == mask_overlapping_bot_top_touching_set
     )
     assert (
         background_knowledge[mask_overlapping_top_bot_touching_pred.name]
         == mask_overlapping_top_bot_touching_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_right_left_touching_pred.name]
+        == mask_overlapping_right_left_touching_set
+    )
+    assert (
+        background_knowledge[mask_overlapping_left_right_touching_pred.name]
+        == mask_overlapping_left_right_touching_set
     )
