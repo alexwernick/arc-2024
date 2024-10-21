@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Any, Callable, DefaultDict, List, NamedTuple
+from functools import lru_cache
+from typing import Any, Callable, DefaultDict, List, NamedTuple, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,8 +43,10 @@ class Solver:
         v4: Variable
 
     class Predicates(NamedTuple):
-        input_pred: Predicate
+        # input_pred: Predicate
         empty_pred: Predicate
+
+        # positional predicates with shape
         above_pred: Predicate
         below_pred: Predicate
         left_of_pred: Predicate
@@ -56,31 +59,11 @@ class Solver:
         inline_below_vertically_pred: Predicate
         inline_left_horizontally_pred: Predicate
         inline_right_horizontally_pred: Predicate
-        mask_overlapping_pred: Predicate
-        mask_overlapping_top_inline_top_pred: Predicate
-        mask_overlapping_bot_inline_bot_pred: Predicate
-        mask_overlapping_left_inline_left_pred: Predicate
-        mask_overlapping_right_inline_right_pred: Predicate
-        mask_overlapping_bot_top_touching_pred: Predicate
-        mask_overlapping_top_bot_touching_pred: Predicate
-        mask_overlapping_right_left_touching_pred: Predicate
-        mask_overlapping_left_right_touching_pred: Predicate
-        inside_mask_pred: Predicate
+        # inside_mask_pred: Predicate
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
-        top_left_bottom_right_diag_pred: Predicate
-        bottom_left_top_right_diag_pred: Predicate
-        shape_colour_predicates: list[Predicate]
-        colour_predicates: list[RuleBasedPredicate]
-        shape_size_predicates: list[Predicate]
-        # inequality_predicates: list[RuleBasedPredicate]
-        shape_colour_count_predicates: list[Predicate]
-        grid_colour_count_predicates: list[Predicate]
-        shape_group_predicates: list[Predicate]
-        shape_colour_pred: Predicate
-        shape_spanning_line_pred: Predicate
-        shape_vertical_line_pred: Predicate
-        shape_horizontal_line_pred: Predicate
+        mask_overlapping_pred: Predicate
+
         vertical_center_distance_more_than_pred: Predicate
         vertical_center_distance_less_than_pred: Predicate
         horizontal_center_distance_more_than_pred: Predicate
@@ -98,7 +81,36 @@ class Solver:
         horizontal_grid_left_distance_less_than_pred: Predicate
         horizontal_grid_right_distance_less_than_pred: Predicate
         number_value_predicates: list[RuleBasedPredicate]
+
+        # positional predicates with 2 shapes
+        mask_overlapping_top_inline_top_pred: Predicate
+        mask_overlapping_bot_inline_bot_pred: Predicate
+        mask_overlapping_left_inline_left_pred: Predicate
+        mask_overlapping_right_inline_right_pred: Predicate
+        mask_overlapping_bot_top_touching_pred: Predicate
+        mask_overlapping_top_bot_touching_pred: Predicate
+        mask_overlapping_right_left_touching_pred: Predicate
+        mask_overlapping_left_right_touching_pred: Predicate
+        mask_overlapping_gravity_to_shape_pred: Predicate
+
+        # position in relation to grid
+        top_left_bottom_right_diag_pred: Predicate
+        bottom_left_top_right_diag_pred: Predicate
         touching_grid_edge_pred: Predicate
+
+        # shape predicates
+        shape_colour_predicates: list[Predicate]
+        colour_predicates: list[RuleBasedPredicate]
+        shape_size_predicates: list[Predicate]
+        shape_colour_count_predicates: list[Predicate]
+        shape_group_predicates: list[Predicate]
+        shape_colour_pred: Predicate
+        shape_spanning_line_pred: Predicate
+        shape_vertical_line_pred: Predicate
+        shape_horizontal_line_pred: Predicate
+
+        # grid predicates
+        grid_colour_count_predicates: list[Predicate]
 
         def to_list(self) -> list[Predicate]:
             flattened: list[Predicate] = []
@@ -153,7 +165,7 @@ class Solver:
         variables = self._create_variables(arg_types)
         target_literal = self._create_target_literal(arg_types, variables)
         predicates = self._create_predicates(arg_types, possible_colours)
-        self._add_predictae_incompatibilities(predicates)
+        self._add_predicate_relations(predicates)
         predicate_list = predicates.to_list()
         if self._has_duplicate_names(predicate_list):
             raise ValueError("Duplicate predicate names")
@@ -161,6 +173,10 @@ class Solver:
 
         # Background facts for predicates
         background_knowledge = self._create_background_knowledge(predicates)
+
+        # Clear caches to free up memory
+        self._distance_until_overlap_horizontally.cache_clear()
+        self._distance_until_overlap_vertically.cache_clear()
 
         # Run FOIL
         foil = FOIL(
@@ -399,10 +415,10 @@ class Solver:
                         background_knowledge[predicates.empty_pred.name].add(
                             (offset_ex_number, i, j)
                         )
-                    else:
-                        background_knowledge[predicates.input_pred.name].add(
-                            (offset_ex_number, Colour(value), i, j)
-                        )
+                    # else:
+                    #     background_knowledge[predicates.input_pred.name].add(
+                    #         (offset_ex_number, Colour(value), i, j)
+                    #     )
 
     def _append_background_knowledge_for_shapes(
         self,
@@ -682,15 +698,15 @@ class Solver:
                 )
             )
 
-        if input_shape.is_ij_inside_mask(output_i, output_j):
-            background_knowledge[predicates.inside_mask_pred.name].add(
-                (
-                    ex_number,
-                    output_i,
-                    output_j,
-                    input_shape_name,
-                )
-            )
+        # if input_shape.is_ij_inside_mask(output_i, output_j):
+        #     background_knowledge[predicates.inside_mask_pred.name].add(
+        #         (
+        #             ex_number,
+        #             output_i,
+        #             output_j,
+        #             input_shape_name,
+        #         )
+        #     )
 
         if input_shape.is_ij_inside_blank_space(output_i, output_j):
             background_knowledge[predicates.inside_blank_space_pred.name].add(
@@ -824,6 +840,18 @@ class Solver:
             predicates.mask_overlapping_top_bot_touching_pred,
             predicates.mask_overlapping_right_left_touching_pred,
             predicates.mask_overlapping_left_right_touching_pred,
+        )
+
+        self._append_background_knowledge_for_mask_gravity_to_shape(
+            background_knowledge,
+            output_i,
+            output_j,
+            input_shape_1,
+            input_shape_name_1,
+            input_shape_2,
+            input_shape_name_2,
+            ex_number,
+            predicates.mask_overlapping_gravity_to_shape_pred,
         )
 
     @staticmethod
@@ -975,6 +1003,70 @@ class Solver:
                 )
             )
 
+    def _append_background_knowledge_for_mask_gravity_to_shape(
+        self,
+        background_knowledge: BackgroundKnowledgeType,
+        output_i: int,
+        output_j: int,
+        input_shape_1: Shape,
+        input_shape_name_1: str,
+        input_shape_2: Shape,
+        input_shape_name_2: str,
+        ex_number: int,
+        mask_overlapping_gravity_to_shape_pred: Predicate,
+    ):
+        vertical_distance_to_touch = self._distance_until_overlap_vertically(
+            input_shape_1, input_shape_2
+        )
+        horizontal_distance_to_touch = self._distance_until_overlap_horizontally(
+            input_shape_1, input_shape_2
+        )
+
+        if vertical_distance_to_touch is None and horizontal_distance_to_touch is None:
+            return
+
+        vertical_distance_closest: bool = False
+
+        if (
+            vertical_distance_to_touch is not None
+            and horizontal_distance_to_touch is not None
+        ):
+            vertical_distance_closest = abs(vertical_distance_to_touch) < abs(
+                horizontal_distance_to_touch
+            )
+        else:
+            vertical_distance_closest = vertical_distance_to_touch is not None
+
+        if vertical_distance_closest:
+            if input_shape_1.is_mask_overlapping_ij(
+                output_i - vertical_distance_to_touch, output_j  # type: ignore
+            ):
+                # overlapping shape 1 and touching closest on shape 2
+                background_knowledge[mask_overlapping_gravity_to_shape_pred.name].add(
+                    (
+                        ex_number,
+                        output_i,
+                        output_j,
+                        input_shape_name_1,
+                        input_shape_name_2,
+                    )
+                )
+
+        else:
+            if input_shape_1.is_mask_overlapping_ij(
+                output_i, output_j - horizontal_distance_to_touch  # type: ignore
+            ):
+                # overlapping shape 1 and touching closest on shape 2
+                background_knowledge[mask_overlapping_gravity_to_shape_pred.name].add(
+                    (
+                        ex_number,
+                        output_i,
+                        output_j,
+                        input_shape_name_1,
+                        input_shape_name_2,
+                    )
+                )
+
     def _create_args_types(
         self,
         possible_colours: list[Colour],
@@ -1044,9 +1136,9 @@ class Solver:
         shape_arg = arg_types.shape_arg
         number_value_arg = arg_types.number_value_arg
 
-        input_pred = Predicate(
-            "input", 4, [ex_num_arg, colour_type_arg, i_arg, j_arg]
-        )  # noqa: E501
+        # input_pred = Predicate(
+        #     "input", 4, [ex_num_arg, colour_type_arg, i_arg, j_arg]
+        # )  # noqa: E501
         empty_pred = Predicate("empty", 3, [ex_num_arg, i_arg, j_arg])
         above_pred = Predicate("above", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
         below_pred = Predicate("below", 4, [ex_num_arg, i_arg, j_arg, shape_arg])
@@ -1137,9 +1229,14 @@ class Solver:
             5,
             [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
         )
-        inside_mask_pred = Predicate(
-            "inside-mask", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
+        mask_overlapping_gravity_to_shape_pred = Predicate(
+            "mask-overlapping-gravity-to-shape",
+            5,
+            [ex_num_arg, i_arg, j_arg, shape_arg, shape_arg],
         )
+        # inside_mask_pred = Predicate(
+        #     "inside-mask", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
+        # )
         inside_blank_space_pred = Predicate(
             "inside-blank-space", 4, [ex_num_arg, i_arg, j_arg, shape_arg]
         )
@@ -1424,7 +1521,7 @@ class Solver:
         )
 
         return self.Predicates(
-            input_pred=input_pred,
+            # input_pred=input_pred,
             empty_pred=empty_pred,
             above_pred=above_pred,
             below_pred=below_pred,
@@ -1447,7 +1544,8 @@ class Solver:
             mask_overlapping_top_bot_touching_pred=mask_overlapping_top_bot_touching_pred,  # noqa: E501
             mask_overlapping_right_left_touching_pred=mask_overlapping_right_left_touching_pred,  # noqa: E501
             mask_overlapping_left_right_touching_pred=mask_overlapping_left_right_touching_pred,  # noqa: E501
-            inside_mask_pred=inside_mask_pred,
+            mask_overlapping_gravity_to_shape_pred=mask_overlapping_gravity_to_shape_pred,  # noqa: E501
+            # inside_mask_pred=inside_mask_pred,
             inside_blank_space_pred=inside_blank_space_pred,
             inside_mask_not_overlapping_pred=inside_mask_not_overlapping_pred,
             top_left_bottom_right_diag_pred=top_left_bottom_right_diag_pred,
@@ -1775,7 +1873,7 @@ class Solver:
         return False
 
     @staticmethod
-    def _add_predictae_incompatibilities(predicates: Predicates):
+    def _add_predicate_relations(predicates: Predicates):
         above_pred = predicates.above_pred
         below_pred = predicates.below_pred
         left_of_pred = predicates.left_of_pred
@@ -1804,6 +1902,9 @@ class Solver:
         )
         mask_overlapping_left_right_touching_pred = (
             predicates.mask_overlapping_left_right_touching_pred
+        )
+        mask_overlapping_gravity_to_shape_pred = (
+            predicates.mask_overlapping_gravity_to_shape_pred
         )
         inside_blank_space_pred = predicates.inside_blank_space_pred
         inside_mask_not_overlapping_pred = predicates.inside_mask_not_overlapping_pred
@@ -1971,6 +2072,7 @@ class Solver:
                 mask_overlapping_top_bot_touching_pred,
                 mask_overlapping_right_left_touching_pred,
                 mask_overlapping_left_right_touching_pred,
+                mask_overlapping_gravity_to_shape_pred,
             }
         )
 
@@ -1979,6 +2081,7 @@ class Solver:
                 mask_overlapping_bot_top_touching_pred,
                 mask_overlapping_right_left_touching_pred,
                 mask_overlapping_left_right_touching_pred,
+                mask_overlapping_gravity_to_shape_pred,
             }
         )
 
@@ -1987,6 +2090,7 @@ class Solver:
                 mask_overlapping_bot_top_touching_pred,
                 mask_overlapping_top_bot_touching_pred,
                 mask_overlapping_left_right_touching_pred,
+                mask_overlapping_gravity_to_shape_pred,
             }
         )
 
@@ -1995,6 +2099,16 @@ class Solver:
                 mask_overlapping_bot_top_touching_pred,
                 mask_overlapping_top_bot_touching_pred,
                 mask_overlapping_right_left_touching_pred,
+                mask_overlapping_gravity_to_shape_pred,
+            }
+        )
+
+        mask_overlapping_gravity_to_shape_pred.add_incompatible_predicates(
+            {
+                mask_overlapping_bot_top_touching_pred,
+                mask_overlapping_top_bot_touching_pred,
+                mask_overlapping_right_left_touching_pred,
+                mask_overlapping_left_right_touching_pred,
             }
         )
 
@@ -2027,3 +2141,183 @@ class Solver:
             for grid_colour_count_2 in grid_colour_count_predicates:
                 if grid_colour_count_1 != grid_colour_count_2:
                     grid_colour_count_1.add_incompatible_predicate(grid_colour_count_2)
+
+        above_pred.add_more_specialised_predicates(
+            {
+                inline_above_vertically_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+            }
+        )
+
+        below_pred.add_more_specialised_predicates(
+            {
+                inline_below_vertically_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        left_of_pred.add_more_specialised_predicates(
+            {
+                inline_left_horizontally_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        right_of_pred.add_more_specialised_predicates(
+            {
+                inline_right_horizontally_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_below_right_pred,
+            }
+        )
+
+        inside_blank_space_pred.add_more_specialised_predicates(
+            {
+                inside_mask_not_overlapping_pred,
+                inside_blank_space_pred,
+                mask_overlapping_pred,
+            }
+        )
+
+    @staticmethod
+    def ranges_overlap(start1, end1, start2, end2):
+        return max(start1, start2) <= min(end1, end2)
+
+    @lru_cache(maxsize=5000000)
+    def _distance_until_overlap_vertically(
+        self, input_shape_1: Shape, input_shape_2: Shape
+    ) -> Optional[int]:
+        if input_shape_1.is_mask_overlapping(input_shape_2):
+            return None
+
+        distance_up: Optional[int] = -1
+        shifted_position = (input_shape_1.position[0] - 1, input_shape_1.position[1])
+        shifted_shape = Shape(
+            shifted_position, input_shape_1.mask, input_shape_1.shape_type
+        )
+        did_overlap = False
+        while shifted_shape.position[0] >= 0:
+            did_overlap = shifted_shape.is_mask_overlapping(input_shape_2)
+            if did_overlap:
+                distance_up += 1  # type: ignore
+                break
+
+            shifted_position = (
+                shifted_shape.position[0] - 1,
+                shifted_shape.position[1],
+            )
+            shifted_shape = Shape(
+                shifted_position, input_shape_1.mask, input_shape_1.shape_type
+            )
+            distance_up -= 1  # type: ignore
+
+        if not did_overlap:
+            distance_up = None
+
+        distance_down: Optional[int] = 1
+        shifted_position = (input_shape_1.position[0] + 1, input_shape_1.position[1])
+        shifted_shape = Shape(
+            shifted_position, input_shape_1.mask, input_shape_1.shape_type
+        )
+        did_overlap = False
+        while shifted_shape.position[0] <= input_shape_2.bottom_most:
+            did_overlap = shifted_shape.is_mask_overlapping(input_shape_2)
+            if did_overlap:
+                distance_down -= 1  # type: ignore
+                break
+
+            shifted_position = (
+                shifted_shape.position[0] + 1,
+                shifted_shape.position[1],
+            )
+            shifted_shape = Shape(
+                shifted_position, input_shape_1.mask, input_shape_1.shape_type
+            )
+            distance_down += 1  # type: ignore
+
+        if not did_overlap:
+            distance_down = None
+
+        if distance_up is None and distance_down is None:
+            return None
+
+        if distance_up is None:
+            return distance_down
+
+        if distance_down is None:
+            return distance_up
+
+        if abs(distance_up) < distance_down:
+            return distance_up
+
+        return distance_down
+
+    @lru_cache(maxsize=5000000)
+    def _distance_until_overlap_horizontally(
+        self, input_shape_1: Shape, input_shape_2: Shape
+    ) -> Optional[int]:
+        if input_shape_1.is_mask_overlapping(input_shape_2):
+            return None
+
+        distance_left: Optional[int] = -1
+        shifted_position = (input_shape_1.position[0], input_shape_1.position[1] - 1)
+        shifted_shape = Shape(
+            shifted_position, input_shape_1.mask, input_shape_1.shape_type
+        )
+        did_overlap = False
+        while shifted_shape.position[1] >= 0:
+            did_overlap = shifted_shape.is_mask_overlapping(input_shape_2)
+            if did_overlap:
+                distance_left += 1  # type: ignore
+                break
+            shifted_position = (
+                shifted_shape.position[0],
+                shifted_shape.position[1] - 1,
+            )
+            shifted_shape = Shape(
+                shifted_position, input_shape_1.mask, input_shape_1.shape_type
+            )
+            distance_left -= 1  # type: ignore
+
+        if not did_overlap:
+            distance_left = None
+
+        distance_right: Optional[int] = 1
+        shifted_position = (input_shape_1.position[0], input_shape_1.position[1] + 1)
+        shifted_shape = Shape(
+            shifted_position, input_shape_1.mask, input_shape_1.shape_type
+        )
+        did_overlap = False
+        while shifted_shape.position[1] <= input_shape_2.right_most:
+            did_overlap = shifted_shape.is_mask_overlapping(input_shape_2)
+            if did_overlap:
+                distance_right -= 1  # type: ignore
+                break
+            shifted_position = (
+                shifted_shape.position[0],
+                shifted_shape.position[1] + 1,
+            )
+            shifted_shape = Shape(
+                shifted_position, input_shape_1.mask, input_shape_1.shape_type
+            )
+            distance_right += 1  # type: ignore
+
+        if not did_overlap:
+            distance_right = None
+
+        if distance_left is None and distance_right is None:
+            return None
+
+        if distance_left is None:
+            return distance_right
+
+        if distance_right is None:
+            return distance_left
+
+        if abs(distance_left) < distance_right:
+            return distance_left
+
+        return distance_right

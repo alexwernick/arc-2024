@@ -201,7 +201,8 @@ class FOIL:
         best_literals: list[FOIL.BestLiteral] = []
 
         # Evaluate each candidate literal
-        for literal in candidate_literals:
+        while candidate_literals:
+            literal = candidate_literals.pop(0)
             if literal in clause.body:
                 continue  # Avoid cycles
 
@@ -226,6 +227,15 @@ class FOIL:
             old_negative_count = len(old_negative_examples)
 
             if not new_positive_count:
+                more_specilaised_literals = {
+                    Literal(pre, literal.args)
+                    for pre in literal.predicate.more_specialised_predicates
+                }
+                candidate_literals = [
+                    lit
+                    for lit in candidate_literals
+                    if lit not in more_specilaised_literals
+                ]
                 continue  # Must cover some positive examples
 
             # Now compute the maximum possible gain from substitutions
@@ -312,6 +322,7 @@ class FOIL:
             new_vars, extended_examples, literal_to_add
         )
 
+    # @profile
     def _extend_example_with_new_vars(
         self,
         new_vars: list[Variable],
@@ -407,7 +418,6 @@ class FOIL:
             variables = list(vars)
             literal = Literal(predicate, variables)
             if literal in clause.incompatable_literals:
-                # pass
                 continue
             # negated_literal = Literal(predicate, variables, negated=True)
             # Avoid adding duplicate literals
@@ -521,6 +531,7 @@ class FOIL:
                 return True
         return False
 
+    # @profile
     def _evaluate_literal(
         self,
         literal: Literal,
@@ -569,6 +580,7 @@ class FOIL:
         predicate_facts = self.background_knowledge.get(predicate_name, set())
         return bound_args in predicate_facts
 
+    # @profile
     def _partial_evaluate_literal(
         self,
         literal: Literal,
@@ -585,16 +597,16 @@ class FOIL:
         bound_args = []
         all_vars_bound = True
         for arg in literal.args:
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                bound_args.append(arg.value)
-                continue
-
             # Check if the argument is a variable in the example
             # if so get value from example
             if isinstance(arg, Variable) and arg.name in example:
                 bound_args.append(example[arg.name])
+                continue
+
+            # Check if the argument is a constant
+            # if so append to args
+            if isinstance(arg, Constant):
+                bound_args.append(arg.value)
                 continue
 
             all_vars_bound = False

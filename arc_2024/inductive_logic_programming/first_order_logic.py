@@ -108,6 +108,7 @@ class Predicate:
     arity: int
     arg_types: list[ArgType]
     incompatible_predicates: set["Predicate"]
+    more_specialised_predicates: set["Predicate"]
 
     def __init__(
         self,
@@ -115,6 +116,7 @@ class Predicate:
         arity: int,
         arg_types: list[ArgType],
         incompatible_predicates: Optional[set["Predicate"]] = None,
+        more_specialised_predicates: Optional[set["Predicate"]] = None,
     ):
         """
         Initialize a Predicate.
@@ -128,8 +130,11 @@ class Predicate:
         self.arity = arity
         self.arg_types = arg_types
         incompatible_predicates = incompatible_predicates or set()
-        self._validate_incompatible_predicates(incompatible_predicates)
+        self._validate_predicates_match(incompatible_predicates)
         self.incompatible_predicates = incompatible_predicates
+        more_specialised_predicates = more_specialised_predicates or set()
+        self._validate_predicates_match(more_specialised_predicates)
+        self.more_specialised_predicates = more_specialised_predicates
 
     def __repr__(self):
         """
@@ -150,27 +155,35 @@ class Predicate:
         return hash((self.name, self.arity, tuple(self.arg_types)))
 
     def add_incompatible_predicate(self, inompatible_predicate: "Predicate"):
-        self._validate_incompatible_predicate(inompatible_predicate)
+        self._validate_predicate_matches(inompatible_predicate)
         self.incompatible_predicates.add(inompatible_predicate)
 
     def add_incompatible_predicates(self, inompatible_predicates: set["Predicate"]):
-        self._validate_incompatible_predicates(inompatible_predicates)
+        self._validate_predicates_match(inompatible_predicates)
         self.incompatible_predicates.update(inompatible_predicates)
 
-    def _validate_incompatible_predicates(
-        self, inompatible_predicates: set["Predicate"]
-    ):
-        for p in inompatible_predicates:
-            self._validate_incompatible_predicate(p)
+    def add_more_specialised_predicate(self, more_specialised_predicate: "Predicate"):
+        self._validate_predicate_matches(more_specialised_predicate)
+        self.incompatible_predicates.add(more_specialised_predicate)
 
-    def _validate_incompatible_predicate(self, incompatible_predicate: "Predicate"):
-        if incompatible_predicate.arity != self.arity:
+    def add_more_specialised_predicates(
+        self, more_specialised_predicates: set["Predicate"]
+    ):
+        self._validate_predicates_match(more_specialised_predicates)
+        self.incompatible_predicates.update(more_specialised_predicates)
+
+    def _validate_predicates_match(self, predicates: set["Predicate"]):
+        for p in predicates:
+            self._validate_predicate_matches(p)
+
+    def _validate_predicate_matches(self, predicate: "Predicate"):
+        if predicate.arity != self.arity:
             raise ValueError(
-                f"Predicate '{self.name}' incompatible with '{incompatible_predicate.name}' as they have different arity"  # noqa: E501
+                f"Predicate '{self.name}' incompatible with '{predicate.name}' as they have different arity"  # noqa: E501
             )
-        if incompatible_predicate.arg_types != self.arg_types:
+        if predicate.arg_types != self.arg_types:
             raise ValueError(
-                f"Predicate '{self.name}' incompatible with '{incompatible_predicate.name}' as they have different argument types"  # noqa: E501
+                f"Predicate '{self.name}' incompatible with '{predicate.name}' as they have different argument types"  # noqa: E501
             )
 
 
