@@ -146,7 +146,7 @@ class FOIL:
                 )
 
                 for best_literal in best_literals:
-                    clause = copy.deepcopy(beam_item.clause)
+                    clause = beam_item.clause.copy()
                     clause.add_literal(best_literal.literal)
                     new_beam.append(
                         FOIL.BeamItem(
@@ -407,6 +407,7 @@ class FOIL:
             variables = list(vars)
             literal = Literal(predicate, variables)
             if literal in clause.incompatable_literals:
+                # pass
                 continue
             # negated_literal = Literal(predicate, variables, negated=True)
             # Avoid adding duplicate literals

@@ -107,14 +107,14 @@ class Predicate:
     name: str
     arity: int
     arg_types: list[ArgType]
-    incompatable_predicates: set["Predicate"]
+    incompatible_predicates: set["Predicate"]
 
     def __init__(
         self,
         name: str,
         arity: int,
         arg_types: list[ArgType],
-        inompatible_predicates: set["Predicate"] = set(),
+        incompatible_predicates: Optional[set["Predicate"]] = None,
     ):
         """
         Initialize a Predicate.
@@ -127,8 +127,9 @@ class Predicate:
         self.name = name
         self.arity = arity
         self.arg_types = arg_types
-        self._validate_incompatible_predicates(inompatible_predicates)
-        self.incompatible_predicates = inompatible_predicates
+        incompatible_predicates = incompatible_predicates or set()
+        self._validate_incompatible_predicates(incompatible_predicates)
+        self.incompatible_predicates = incompatible_predicates
 
     def __repr__(self):
         """
@@ -149,7 +150,7 @@ class Predicate:
         return hash((self.name, self.arity, tuple(self.arg_types)))
 
     def add_incompatible_predicate(self, inompatible_predicate: "Predicate"):
-        self._validateinompatible_predicate(inompatible_predicate)
+        self._validate_incompatible_predicate(inompatible_predicate)
         self.incompatible_predicates.add(inompatible_predicate)
 
     def add_incompatible_predicates(self, inompatible_predicates: set["Predicate"]):
@@ -160,16 +161,16 @@ class Predicate:
         self, inompatible_predicates: set["Predicate"]
     ):
         for p in inompatible_predicates:
-            self._validateinompatible_predicate(p)
+            self._validate_incompatible_predicate(p)
 
-    def _validateinompatible_predicate(self, inompatible_predicate: "Predicate"):
-        if inompatible_predicate.arity != self.arity:
+    def _validate_incompatible_predicate(self, incompatible_predicate: "Predicate"):
+        if incompatible_predicate.arity != self.arity:
             raise ValueError(
-                f"Predicate '{self.name}' incompatible with '{inompatible_predicate.name}' as they have different arity"  # noqa: E501
+                f"Predicate '{self.name}' incompatible with '{incompatible_predicate.name}' as they have different arity"  # noqa: E501
             )
-        if inompatible_predicate.arg_types != self.arg_types:
+        if incompatible_predicate.arg_types != self.arg_types:
             raise ValueError(
-                f"Predicate '{self.name}' incompatible with '{inompatible_predicate.name}' as they have different argument types"  # noqa: E501
+                f"Predicate '{self.name}' incompatible with '{incompatible_predicate.name}' as they have different argument types"  # noqa: E501
             )
 
 
@@ -283,11 +284,21 @@ class Clause:
             {arg for arg in literal.args if isinstance(arg, Variable)}
         )
 
-        for incompatable_predicate in literal.predicate.incompatable_predicates:
+        for incompatable_predicate in literal.predicate.incompatible_predicates:
             # We can do this as we have restricted the arguments to be the same
             # See the the Predicate class
             incompatable_literal = Literal(incompatable_predicate, literal.args)
             self.incompatable_literals.add(incompatable_literal)
+
+    def copy(self) -> "Clause":
+        """
+        Create a copy of the clause.
+        """
+        new_clause = Clause(self.head)
+        new_clause.body = self.body.copy()
+        new_clause.variables = self.variables.copy()
+        new_clause.incompatable_literals = self.incompatable_literals.copy()
+        return new_clause
 
     def covers(
         self,
