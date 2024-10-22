@@ -4,10 +4,9 @@ import math
 from functools import lru_cache
 from typing import Any, NamedTuple
 
-from arc_2024.inductive_logic_programming.first_order_logic import (
+from arc_2024.inductive_logic_programming.first_order_logic import (  # Constant,
     ArgType,
     Clause,
-    Constant,
     Literal,
     Predicate,
     RuleBasedPredicate,
@@ -304,19 +303,25 @@ class FOIL:
         # need to loop over possible values
         # for V3 and add to examples if it satisfies the literal
         extended_examples: list[dict[str, Any]] = [example]
-        new_vars: list[Variable] = []
 
-        for arg in literal_to_add.args:
-            # Check if the argument is a variable in the example
-            # if so get value from example
-            if isinstance(arg, Variable) and arg.name not in example:
-                new_vars.append(arg)
-                continue
+        new_vars: list[Variable] = [
+            arg for arg in literal_to_add.args if arg.name not in example
+        ]
 
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                continue
+        # new_vars: list[Variable] = []
+        # for arg in literal_to_add.args:
+        #     # Check if the argument is a variable in the example
+        #     # if so get value from example
+        #     if (
+        #         isinstance(arg, Variable) and
+        #         arg.name not in example):
+        #         new_vars.append(arg)
+        #         continue
+
+        #     # Check if the argument is a constant
+        #     # if so append to args
+        #     if isinstance(arg, Constant):
+        #         continue
 
         return self._extend_example_with_new_vars(
             new_vars, extended_examples, literal_to_add
@@ -549,15 +554,19 @@ class FOIL:
         for arg in literal.args:
             # Check if the argument is a variable in the example
             # if so get value from example
-            if isinstance(arg, Variable) and arg.name in example:
+            if (
+                # isinstance(arg, Variable) and
+                arg.name
+                in example
+            ):
                 bound_args.append(example[arg.name])
                 continue
 
             # Check if the argument is a constant
             # if so append to args
-            if isinstance(arg, Constant):
-                bound_args.append(arg.value)
-                continue
+            # if isinstance(arg, Constant):
+            #     bound_args.append(arg.value)
+            #     continue
 
             raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
 
@@ -594,23 +603,31 @@ class FOIL:
         :return: True if the literal is satisfied, False otherwise.
         """
         # Bind the arguments using the example's variable assignments
-        bound_args = []
-        all_vars_bound = True
-        for arg in literal.args:
-            # Check if the argument is a variable in the example
-            # if so get value from example
-            if isinstance(arg, Variable) and arg.name in example:
-                bound_args.append(example[arg.name])
-                continue
+        # bound_args = []
+        # all_vars_bound = True
+        # for arg in literal.args:
+        #     # Check if the argument is a variable in the example
+        #     # if so get value from example
+        #     if (
+        #         isinstance(arg, Variable) and
+        #         arg.name in example):
+        #         bound_args.append(example[arg.name])
+        #         continue
 
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                bound_args.append(arg.value)
-                continue
+        #     # Check if the argument is a constant
+        #     # if so append to args
+        #     if isinstance(arg, Constant):
+        #         bound_args.append(arg.value)
+        #         continue
 
-            all_vars_bound = False
-            bound_args.append(None)
+        #     all_vars_bound = False
+        #     bound_args.append(None)
+
+        bound_args = [
+            example[arg.name] if arg.name in example else None for arg in literal.args
+        ]
+
+        all_vars_bound = all(arg is not None for arg in bound_args)
 
         # If it's rule based we have to assume all good
         if isinstance(literal.predicate, RuleBasedPredicate):
