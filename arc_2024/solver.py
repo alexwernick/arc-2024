@@ -448,20 +448,8 @@ class Solver:
                         (ex_test_number, input_shape_name, input_shape.colour)
                     )
 
-                # should only be one colour?
-                is_vertical_line: bool = (
-                    input_shape.height == input_grid.shape[0]
-                    and input_shape.width == 1
-                    and input_shape.num_of_coloured_pixels == input_shape.height
-                    and input_grid.shape[1] > 2
-                )
-
-                is_horizontal_line: bool = (
-                    input_shape.width == input_grid.shape[1]
-                    and input_shape.height == 1
-                    and input_shape.num_of_coloured_pixels == input_shape.width
-                    and input_grid.shape[0] > 2
-                )
+                is_vertical_line: bool = input_shape.is_vertical_line(input_grid)
+                is_horizontal_line: bool = input_shape.is_horizontal_line(input_grid)
 
                 if is_vertical_line or is_horizontal_line:
                     background_knowledge[predicates.shape_spanning_line_pred.name].add(

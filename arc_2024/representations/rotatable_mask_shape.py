@@ -47,7 +47,7 @@ class RotatableMaskShape(Shape):
         return is_eq and mask_equal
 
     def __hash__(self):
-        return hash((self._fixed_mask, super().__hash__()))
+        return hash((self._fixed_mask.tobytes(), super().__hash__()))
 
     def is_above_ij(self, i: Union[int, float], j: Union[int, float]) -> bool:
         """

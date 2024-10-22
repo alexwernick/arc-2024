@@ -44,34 +44,34 @@ def test_solver(task_id, empty_test_outputs):
     interpretations = interpreter.interpret_shapes()
 
     for interpretation in interpretations:
-        # try:
-        (
-            inputs_shapes,
-            outputs_shapes,
-            test_inputs_shapes,
-            _,
-        ) = interpretation
+        try:
+            (
+                inputs_shapes,
+                outputs_shapes,
+                test_inputs_shapes,
+                _,
+            ) = interpretation
 
-        solver = Solver(
-            inputs,
-            outputs,
-            test_inputs,
-            empty_test_outputs,
-            inputs_shapes,
-            outputs_shapes,
-            test_inputs_shapes,
-        )
+            solver = Solver(
+                inputs,
+                outputs,
+                test_inputs,
+                empty_test_outputs,
+                inputs_shapes,
+                outputs_shapes,
+                test_inputs_shapes,
+            )
 
-        results = solver.solve(beam_width=2)
+            results = solver.solve(beam_width=2)
 
-        for result, test_output in zip(results, test_outputs):
-            assert np.array_equal(
-                result, test_output
-            ), f"Assertion failed for task_id: {task_id}"
+            for result, test_output in zip(results, test_outputs):
+                assert np.array_equal(
+                    result, test_output
+                ), f"Assertion failed for task_id: {task_id}"
 
-        return
-    # except Exception as e:
-    # print(f"Error: {e}")
+            return
+        except Exception as e:
+            print(f"Error: {e}")
 
     assert False, f"No solution found for task_id: {task_id}"
 

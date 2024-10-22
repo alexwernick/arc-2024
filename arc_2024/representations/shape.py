@@ -505,6 +505,24 @@ class Shape:
         else:
             return 0
 
+    def is_vertical_line(self, grid: NDArray) -> bool:
+        return (
+            self.height == grid.shape[0]
+            and self.width == 1
+            and self.num_of_coloured_pixels == self.height
+            and grid.shape[1] > 2
+            and self.shape_type == ShapeType.SINGLE_COLOUR
+        )
+
+    def is_horizontal_line(self, grid: NDArray) -> bool:
+        return (
+            self.width == grid.shape[1]
+            and self.height == 1
+            and self.num_of_coloured_pixels == self.width
+            and grid.shape[0] > 2
+            and self.shape_type == ShapeType.SINGLE_COLOUR
+        )
+
     def all_pixels(self) -> list[Tuple[int, int]]:
         """
         Returns all pixels in the shape
