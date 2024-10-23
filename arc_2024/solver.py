@@ -63,7 +63,8 @@ class Solver:
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
         mask_overlapping_pred: Predicate
-        mask_overlapping_scaled_to_grid_pred: Predicate
+        inside_mask_not_overlapping_moved_to_grid_pred: Predicate  # noqa: E501
+        mask_overlapping_moved_to_grid_pred: Predicate
 
         vertical_center_distance_more_than_pred: Predicate
         vertical_center_distance_less_than_pred: Predicate
@@ -180,9 +181,6 @@ class Solver:
 
         # Filter out predicates that are not used
         predicate_list = self._filter_predicates(predicate_list, background_knowledge)
-        # predicate_list = [predicates.mask_overlapping_scaled_to_grid_pred]
-        # predicate_list.extend(predicates.colour_predicates)
-        # predicate_list.extend(predicates.shape_colour_predicates)
 
         # Clear caches to free up memory
         self._distance_until_overlap_horizontally.cache_clear()
@@ -741,7 +739,21 @@ class Solver:
                 output_i + input_shape.position[0], output_j + input_shape.position[1]
             ):
                 background_knowledge[
-                    predicates.mask_overlapping_scaled_to_grid_pred.name
+                    predicates.mask_overlapping_moved_to_grid_pred.name
+                ].add(
+                    (
+                        ex_number,
+                        output_i,
+                        output_j,
+                        input_shape_name,
+                    )
+                )
+
+            if input_shape.is_ij_inside_mask_not_overlapping(
+                output_i + input_shape.position[0], output_j + input_shape.position[1]
+            ):
+                background_knowledge[
+                    predicates.inside_mask_not_overlapping_moved_to_grid_pred.name
                 ].add(
                     (
                         ex_number,
@@ -1212,8 +1224,13 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )
-        mask_overlapping_scaled_to_grid_pred = Predicate(
-            "mask-overlapping-scaled-to-grid",
+        mask_overlapping_moved_to_grid_pred = Predicate(
+            "mask-overlapping-moved-to-grid",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )
+        inside_mask_not_overlapping_moved_to_grid_pred = Predicate(
+            "inside-mask-not-overlapping-moved-to-grid",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )
@@ -1564,7 +1581,8 @@ class Solver:
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
-            mask_overlapping_scaled_to_grid_pred=mask_overlapping_scaled_to_grid_pred,
+            mask_overlapping_moved_to_grid_pred=mask_overlapping_moved_to_grid_pred,
+            inside_mask_not_overlapping_moved_to_grid_pred=inside_mask_not_overlapping_moved_to_grid_pred,  # noqa: E501
             mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
             mask_overlapping_bot_inline_bot_pred=mask_overlapping_bot_inline_bot_pred,
             mask_overlapping_left_inline_left_pred=mask_overlapping_left_inline_left_pred,  # noqa: E501
