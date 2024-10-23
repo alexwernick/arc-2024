@@ -281,10 +281,6 @@ class Solver:
                     continue
                 input_shapes.append(self._generate_shape_name(example_number, True, i))
 
-            input_shapes = [
-                self._generate_shape_name(example_number, True, i)
-                for i in range(len(self.inputs_shapes[example_number]))
-            ]
             output_shapes: list[str] = []
             # output_shapes = [
             #     self._generate_shape_name(example_number, False, i)
@@ -293,12 +289,19 @@ class Solver:
             possible_values[example_number] = input_shapes + output_shapes
 
         for example_number, _ in enumerate(self.test_inputs):
-            input_shapes = [
-                self._generate_shape_name(
-                    example_number + self._TEST_EX_NUMBER_OFFSET, True, i
+            input_shapes = []
+            for i in range(len(self.test_inputs_shapes[example_number])):
+                if (
+                    self.test_inputs_shapes[example_number][i].shape_type
+                    == ShapeType.PIXEL
+                ):
+                    continue
+                input_shapes.append(
+                    self._generate_shape_name(
+                        example_number + self._TEST_EX_NUMBER_OFFSET, True, i
+                    )
                 )
-                for i in range(len(self.test_inputs_shapes[example_number]))
-            ]
+
             output_shapes = []
             # output_shapes = [
             #     self._generate_shape_name(example_number + self._TEST_EX_NUMBER_OFFSET, False, i) # noqa: E501

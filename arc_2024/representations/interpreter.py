@@ -271,8 +271,8 @@ class Interpreter:
             hit_threshold, test_inputs_shapes, test_shapes_grouped_colour_counts
         )
 
-        # TODO: size group of order e.g.
-        # BIGGEST-0 for biggest and SMALLEST-0 for smallest etc
+        # Size order groups
+        Interpreter._enrich_with_shapes_size_ordering(inputs_shapes, test_inputs_shapes)
 
         # Rotatable Mask Shapes
         Interpreter._enrich_with_rotatable_mask_shapes(
@@ -433,6 +433,62 @@ class Interpreter:
                 shape.add_group(f"GROUP_COLOUR_COUNT-{group_colour_count}")
                 shape.add_group(f"GROUP_COLOUR_COUNT_ASC-{asc_colour_count_index}")
                 shape.add_group(f"GROUP_COLOUR_COUNT_DESC-{desc_colour_count_index}")
+
+    @staticmethod
+    def _enrich_with_shapes_size_ordering(
+        list_shapes: List[List[Shape]],
+        list_test_shapes: List[List[Shape]],
+    ):
+        def get_shape_count(shapes: List[Shape]) -> int:
+            filtered_shapes = [
+                shape
+                for shape in shapes
+                if shape.shape_type != ShapeType.PIXEL
+                and not isinstance(shape, RotatableMaskShape)
+            ]
+            return len(filtered_shapes)
+
+        def are_counts_of_shapes_same() -> bool:
+            counts = set()
+            for shapes in list_shapes:
+                counts.add(get_shape_count(shapes))
+
+            for shapes in list_test_shapes:
+                counts.add(get_shape_count(shapes))
+
+            return len(counts) == 1
+
+        def assign_ordered_groups(shapes: List[Shape], counts_the_same: bool) -> None:
+            # ascending
+            filtered_shapes = [
+                shape
+                for shape in shapes
+                if shape.shape_type != ShapeType.PIXEL
+                and not isinstance(shape, RotatableMaskShape)
+            ]
+            shapes_ordered_by_size = sorted(
+                filtered_shapes, key=lambda s: s.num_of_coloured_pixels
+            )
+            sizes_without_duplicates = sorted(
+                list({shape.num_of_coloured_pixels for shape in shapes_ordered_by_size})
+            )
+            if len(sizes_without_duplicates) <= 1:
+                return
+
+            for shape in shapes_ordered_by_size:
+                index = sizes_without_duplicates.index(shape.num_of_coloured_pixels)
+                if counts_the_same:
+                    shape.add_group(f"ORDERED-SIZE-{index}")
+                if index == 0:
+                    shape.add_group("SMALLEST")
+                if index == len(sizes_without_duplicates) - 1:
+                    shape.add_group("BIGGEST")
+
+        counts_the_same = are_counts_of_shapes_same()
+        for shapes in list_shapes:
+            assign_ordered_groups(shapes, counts_the_same)
+        for shapes in list_test_shapes:
+            assign_ordered_groups(shapes, counts_the_same)
 
     @staticmethod
     def _interpret_shapes_by_seperator_old(

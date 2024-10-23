@@ -188,6 +188,62 @@ def test_interprets_all_shapes(interpreter_dictiorary, task_id):
 #             assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
 
 
+def test_interprets_shape_size_shape_groups(interpreter: Interpreter):
+    interpreter = create_interpreter_for_task("08ed6ac7")
+    # Exercise code
+    interpretations = interpreter.interpret_shapes()
+    interpreted_shapes = next(
+        (
+            x
+            for x in interpretations
+            if x.interpret_type == Interpreter.InterpretType.LOCAL_SEARCH
+        ),
+        None,
+    )
+
+    # Verify code
+    assert interpreted_shapes is not None
+    inputs_shapes = interpreted_shapes.inputs
+    test_inputs_shapes = interpreted_shapes.test_inputs
+
+    inputs_shapes_group_sizes: list[list[int]] = [[3, 6, 8, 9], [2, 4, 5, 8]]
+
+    test_inputs_shapes_group_sizes: list[list[int]] = [
+        [3, 5, 7, 8],
+    ]
+
+    def check_groups(
+        list_shapes: list[list[Shape]], shapes_group_sizes: list[list[int]]
+    ):
+        for index, shapes in enumerate(list_shapes):
+            shapes_found = 0
+            for shape in shapes:
+                if shape.shape_type.name == "PIXEL":
+                    continue
+
+                if isinstance(shape, RotatableMaskShape):
+                    continue
+
+                if shape.num_of_coloured_pixels == shapes_group_sizes[index][0]:
+                    assert "ORDERED-SIZE-0" in shape.shape_groups
+                    assert "SMALLEST" in shape.shape_groups
+                    shapes_found += 1
+                elif shape.num_of_coloured_pixels == shapes_group_sizes[index][1]:
+                    assert "ORDERED-SIZE-1" in shape.shape_groups
+                    shapes_found += 1
+                elif shape.num_of_coloured_pixels == shapes_group_sizes[index][2]:
+                    assert "ORDERED-SIZE-2" in shape.shape_groups
+                    shapes_found += 1
+                elif shape.num_of_coloured_pixels == shapes_group_sizes[index][3]:
+                    assert "ORDERED-SIZE-3" in shape.shape_groups
+                    assert "BIGGEST" in shape.shape_groups
+                    shapes_found += 1
+            assert shapes_found == 4
+
+    check_groups(inputs_shapes, inputs_shapes_group_sizes)
+    check_groups(test_inputs_shapes, test_inputs_shapes_group_sizes)
+
+
 def test_split_array_on_zeros_with_indices():
     array = np.array(
         [

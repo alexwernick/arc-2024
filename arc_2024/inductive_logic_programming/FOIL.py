@@ -210,6 +210,7 @@ class FOIL:
 
             new_positive_examples: list[dict[str, Any]] = []
             old_positive_examples_copy = copy.deepcopy(old_positive_examples)
+
             for example in old_positive_examples_copy:
                 new_positive_examples.extend(self._extend_example(example, literal))
 
@@ -698,31 +699,56 @@ class FOIL:
             bk_indices[predicate_name] = index
         return bk_indices
 
+    # @staticmethod
+    # def _trim_examples_with_duplicate_literals_depricated(
+    #     clause: Clause, examples: list[dict[str, Any]], literal: Literal
+    # ) -> list[dict[str, Any]]:
+    #     matching_literals = [
+    #         lit for lit in clause.body if lit.predicate == literal.predicate
+    #     ]
+    #     pairs: list[tuple[str, str]] = []
+
+    #     for lit in matching_literals:
+    #         for arg1, arg2 in zip(lit.args, literal.args):
+    #             if arg1.name != arg2.name:
+    #                 pairs.append((arg1.name, arg2.name))
+
+    #     if not pairs:
+    #         return examples
+
+    #     examples_trimmed = []
+    #     for example in examples:
+    #         all_args_match = True
+    #         for arg_name_1, arg_name_2 in pairs:
+    #             if example[arg_name_1] != example[arg_name_2]:
+    #                 all_args_match = False
+    #                 break
+    #         if not all_args_match:
+    #             examples_trimmed.append(example)
+
+    #     return examples_trimmed
+
     @staticmethod
     def _trim_examples_with_duplicate_literals(
         clause: Clause, examples: list[dict[str, Any]], literal: Literal
     ) -> list[dict[str, Any]]:
-        matching_literals = [
-            lit for lit in clause.body if lit.predicate == literal.predicate
-        ]
         pairs: list[tuple[str, str]] = []
-
-        for lit in matching_literals:
-            for arg1, arg2 in zip(lit.args, literal.args):
-                if arg1.name != arg2.name:
-                    pairs.append((arg1.name, arg2.name))
+        for arg in literal.args:
+            for var in clause.variables:
+                if arg.arg_type == var.arg_type and arg.name != var.name:
+                    pairs.append((arg.name, var.name))
 
         if not pairs:
             return examples
 
         examples_trimmed = []
         for example in examples:
-            all_args_match = True
+            args_match = False
             for arg_name_1, arg_name_2 in pairs:
-                if example[arg_name_1] != example[arg_name_2]:
-                    all_args_match = False
+                if example[arg_name_1] == example[arg_name_2]:
+                    args_match = True
                     break
-            if not all_args_match:
+            if not args_match:
                 examples_trimmed.append(example)
 
         return examples_trimmed

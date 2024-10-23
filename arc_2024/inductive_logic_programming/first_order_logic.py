@@ -291,6 +291,12 @@ class Clause:
             # if isinstance(arg, Variable):
             self.variables.add(arg)  # Variables used in the rule
 
+    def arg_type_var_names(self) -> dict[ArgType, list[str]]:
+        return {
+            arg_type: [var.name for var in self.variables if var.arg_type == arg_type]
+            for arg_type in {var.arg_type for var in self.variables}
+        }
+
     def add_literal(self, literal: Literal):
         """
         Add a literal to the rule's body.
@@ -347,11 +353,11 @@ class Clause:
         variable_assignments = example.copy()
 
         # get the args that can't all be equal
-        arg_pair_groups = self._find_arg_pair_groups()
+        arg_type_var_names = self.arg_type_var_names()
 
         # Attempt to satisfy the body literals with possible bindings
         return self._satisfy_body(
-            variable_assignments, background_knowledge, arg_pair_groups, 0
+            variable_assignments, background_knowledge, arg_type_var_names, 0
         )
 
         # for literal in self.body:
@@ -364,7 +370,7 @@ class Clause:
         literal: Literal,
         variable_assignments: dict[str, Any],
         background_knowledge: dict[str, set[tuple]],
-        arg_pair_groups: list[list[tuple[str, str]]],
+        arg_type_var_names: dict[ArgType, list[str]],
     ) -> list[dict[str, Any]]:
         """
         Find possible variable bindings for a literal given current assignments.
@@ -372,6 +378,18 @@ class Clause:
         :param variable_assignments: Current assignments for variables (dict).
         :return: A list of possible new bindings (list of dicts).
         """
+
+        def is_valid_value(
+            value: Any, example: dict[str, Any], arg_type: ArgType
+        ) -> bool:
+            if arg_type not in arg_type_var_names:
+                return True
+
+            for var_name in arg_type_var_names[arg_type]:
+                if var_name in example and example[var_name] == value:
+                    return False
+            return True
+
         # TODO: How does this work with negated literals?
         # Right now I don't think it does
 
@@ -402,6 +420,11 @@ class Clause:
                         for possible_val in arg.arg_type.possible_values(
                             variable_assignments
                         ):
+                            if not is_valid_value(
+                                possible_val, variable_assignments, arg.arg_type
+                            ):
+                                continue
+
                             copy = ex_arg.copy()
                             copy[i] = possible_val
                             new_extended_args.append(copy)
@@ -436,6 +459,13 @@ class Clause:
                     if arg_val is None:
                         # Unbound variable; propose a new binding
                         # if isinstance(arg, Variable):
+
+                        if not is_valid_value(
+                            fact_val, variable_assignments, arg.arg_type
+                        ):
+                            match = False
+                            break  # No need to check further
+
                         new_bindings[arg.name] = fact_val
                         # else:
                         #     raise Exception(
@@ -450,17 +480,13 @@ class Clause:
                 if match:
                     possible_bindings.append(new_bindings)
 
-        # remove any possible bindings that create two literals
-        # which are exactly the same
-        return Clause._remove_duplicate_literal_bindings(
-            possible_bindings, variable_assignments, arg_pair_groups
-        )
+        return possible_bindings
 
     def _satisfy_body(
         self,
         variable_assignments: dict[str, Any],
         background_knowledge: dict[str, set[tuple]],
-        arg_pair_groups: list[list[tuple[str, str]]],
+        arg_type_var_names: dict[ArgType, list[str]],
         literal_index: int,
     ):
         """
@@ -477,7 +503,7 @@ class Clause:
 
         # Get possible bindings for the current literal
         possible_bindings: list[dict[str, Any]] = self._get_possible_bindings(
-            literal, variable_assignments, background_knowledge, arg_pair_groups
+            literal, variable_assignments, background_knowledge, arg_type_var_names
         )
 
         for binding in possible_bindings:
@@ -489,7 +515,7 @@ class Clause:
             if self._satisfy_body(
                 new_assignments,
                 background_knowledge,
-                arg_pair_groups,
+                arg_type_var_names,
                 literal_index + 1,
             ):
                 return True  # Found satisfying assignments for all literals
@@ -500,75 +526,3 @@ class Clause:
         preds = [lit.predicate for lit in self.body]
         counts = Counter(preds)
         return [item for item, count in counts.items() if count > 1]
-
-    def _find_arg_pair_groups(self) -> list[list[tuple[str, str]]]:
-        """
-        This function will find all the pairs of arguments that can't be the same
-        as they are in the same predicate hence if they all match we are creating
-        a clause with the same literal in twice e,g,
-        :- Parent(X, Y), Parent(A, B) could resolve to :- parent(c, d) and parent(c, d)
-        We find these matching pairs and then exclude
-        them while we evaluate possible bindings
-        """
-        duplictate_predicates = self._find_duplicate_predicates()
-        pairs_groups: list[list[tuple[str, str]]] = []
-        for duplicate_predicate in duplictate_predicates:
-            matching_literals = [
-                lit for lit in self.body if lit.predicate == duplicate_predicate
-            ]
-            while matching_literals:
-                lit_1 = matching_literals.pop()
-                for lit_2 in matching_literals:
-                    if lit_1 == lit_2:
-                        raise Exception("Mathing literals. This should never happen")
-
-                    pairs: list[tuple[str, str]] = []
-                    for arg_1, arg_2 in zip(lit_1.args, lit_2.args):
-                        if arg_1.name != arg_2.name:
-                            pairs.append((arg_1.name, arg_2.name))
-                    pairs_groups.append(pairs)
-        return pairs_groups
-
-    @staticmethod
-    def _satisfies_arg_pairs(
-        binding: dict[str, Any],
-        variable_assignments: dict[str, Any],
-        arg_pairs: list[tuple[str, str]],
-    ) -> bool:
-        """
-        Checks if a possible binding of the clause satisfies the arg pairs
-        generated by the _find_arg_pair_groups function
-        """
-        # merge current bindings with the variable assignments
-        assignments = {**binding, **variable_assignments}
-
-        if len(arg_pairs) == 0:
-            return True
-        for arg_1, arg_2 in arg_pairs:
-            if arg_1 not in assignments or arg_2 not in assignments:
-                return True
-            if assignments[arg_1] != assignments[arg_2]:
-                return True
-        return False
-
-    @staticmethod
-    def _remove_duplicate_literal_bindings(
-        possible_bindings: list[dict[str, Any]],
-        variable_assignments: dict[str, Any],
-        arg_pair_groups: list[list[tuple[str, str]]],
-    ) -> list[dict[str, Any]]:
-        """
-        This function will remove any possible bindings that duplicate literals
-        """
-        trimmed_possible_bindings = []
-        for binding in possible_bindings:
-            satisfies_arg_pairs: bool = True
-            for arg_pairs in arg_pair_groups:
-                if not Clause._satisfies_arg_pairs(
-                    binding, variable_assignments, arg_pairs
-                ):
-                    satisfies_arg_pairs = False
-                    break
-            if satisfies_arg_pairs:
-                trimmed_possible_bindings.append(binding)
-        return trimmed_possible_bindings

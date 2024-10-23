@@ -30,6 +30,7 @@ from arc_2024.solver import Solver
         ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
         ("1b2d62fb", [np.zeros((5, 3), dtype=np.int16)]),
+        ("08ed6ac7", [np.zeros((9, 9), dtype=np.int16)]),
     ],
 )
 def test_solver(task_id, empty_test_outputs):
@@ -64,7 +65,7 @@ def test_solver(task_id, empty_test_outputs):
                 test_inputs_shapes,
             )
 
-            results = solver.solve(beam_width=3, max_clause_length=8)
+            results = solver.solve(beam_width=2, max_clause_length=8)
 
             for result, test_output in zip(results, test_outputs):
                 assert np.array_equal(
