@@ -335,6 +335,27 @@ class Shape:
         """
         return self._is_mask_overlapping(1, 1, (i, j), np.array([[1]]))
 
+    def is_mask_overlapping_and_colour_ij(self, i: int, j: int, colour: Colour) -> bool:
+        """
+        Returns True if self's mask overlaps with i,j and colour
+        """
+        if i < self.position[0]:
+            return False
+
+        if j < self.position[1]:
+            return False
+
+        if i > self.position[0] + self.mask.shape[0] - 1:
+            return False
+
+        if j > self.position[1] + self.mask.shape[1] - 1:
+            return False
+
+        i_in_mask = i - self.position[0]
+        j_in_mask = j - self.position[1]
+
+        return self.mask[i_in_mask, j_in_mask] == colour.value
+
     def _is_mask_overlapping(
         self,
         other_height: int,

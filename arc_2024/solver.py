@@ -62,6 +62,7 @@ class Solver:
         # inside_mask_pred: Predicate
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
+        mask_overlapping_and_colour_pred: Predicate
         mask_overlapping_pred: Predicate
         inside_mask_not_overlapping_moved_to_grid_pred: Predicate  # noqa: E501
         mask_overlapping_moved_to_grid_pred: Predicate
@@ -162,7 +163,7 @@ class Solver:
         """
         # We prepare data for the FOIL algorithm
         possible_colours: list[Colour] = self._extract_all_possible_colours(
-            self.inputs, self.outputs
+            self.inputs, self.outputs, self.test_inputs
         )  # noqa: E501
 
         arg_types = self._create_args_types(possible_colours)
@@ -177,7 +178,9 @@ class Solver:
         examples = self._create_examples(possible_colours, variables)
 
         # Background facts for predicates
-        background_knowledge = self._create_background_knowledge(predicates)
+        background_knowledge = self._create_background_knowledge(
+            predicates, possible_colours
+        )
 
         # Filter out predicates that are not used
         predicate_list = self._filter_predicates(predicate_list, background_knowledge)
@@ -362,13 +365,6 @@ class Solver:
         possible_colours: list[Colour],
         variables: Variables,
     ) -> List[NDArray[np.int16]]:
-        # We extend possible colours with any in test inputs
-        more_possible_colours: list[Colour] = self._extract_all_possible_colours(
-            self.test_inputs
-        )
-        possible_colours.extend(more_possible_colours)
-        possible_colours = list(set(possible_colours))
-
         # we iteratively populate the test outputs
         test_outputs: List[NDArray[np.int16]] = []
         for test_number, output_grid in enumerate(self.empty_test_outputs):
@@ -438,6 +434,7 @@ class Solver:
         inputs: list[NDArray[np.int16]],
         inputs_shapes: list[list[Shape]],
         predicates: Predicates,
+        possible_colours: list[Colour],
         ex_number_offset: int = 0,
     ) -> None:
         for ex_number, (input_shapes, output_grid, input_grid) in enumerate(
@@ -485,7 +482,7 @@ class Solver:
                         ):
                             background_knowledge[colour_pred.name].add(
                                 (ex_test_number, input_shape_name)
-                            )  # noqa: E501
+                            )
 
                 for shape_colour_count_pred in predicates.shape_colour_count_predicates:
                     if (
@@ -531,6 +528,7 @@ class Solver:
                             ex_test_number,
                             input_shape_name,
                             predicates,
+                            possible_colours,
                         )
 
             for input_shape_index_1, input_shape_1 in enumerate(input_shapes):
@@ -576,6 +574,7 @@ class Solver:
         ex_number: int,
         input_shape_name: str,
         predicates: Predicates,
+        possible_colours: list[Colour],
     ) -> None:
         if input_shape.is_above_ij(output_i, output_j):
             background_knowledge[predicates.above_pred.name].add(
@@ -730,6 +729,22 @@ class Solver:
                     input_shape_name,
                 )
             )
+
+        for colour in possible_colours:
+            if input_shape.is_mask_overlapping_and_colour_ij(
+                output_i, output_j, colour
+            ):
+                background_knowledge[
+                    predicates.mask_overlapping_and_colour_pred.name
+                ].add(
+                    (
+                        ex_number,
+                        colour,
+                        output_i,
+                        output_j,
+                        input_shape_name,
+                    )
+                )
 
         # for now we just look at cases where the whole shape
         # mask is the size of the output grid
@@ -1227,6 +1242,11 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )
+        mask_overlapping_and_colour_pred = Predicate(
+            "mask-overlapping-and-colour",
+            5,
+            [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
+        )
         mask_overlapping_moved_to_grid_pred = Predicate(
             "mask-overlapping-moved-to-grid",
             4,
@@ -1584,6 +1604,7 @@ class Solver:
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
+            mask_overlapping_and_colour_pred=mask_overlapping_and_colour_pred,
             mask_overlapping_moved_to_grid_pred=mask_overlapping_moved_to_grid_pred,
             inside_mask_not_overlapping_moved_to_grid_pred=inside_mask_not_overlapping_moved_to_grid_pred,  # noqa: E501
             mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
@@ -1669,6 +1690,7 @@ class Solver:
     def _create_background_knowledge(
         self,
         predicates: Predicates,
+        possible_colours: list[Colour],
     ) -> BackgroundKnowledgeType:
         background_knowledge: Solver.BackgroundKnowledgeType = defaultdict(set)
 
@@ -1684,6 +1706,7 @@ class Solver:
             self.inputs,
             self.inputs_shapes,
             predicates,
+            possible_colours,
         )
 
         # Raw input bk
@@ -1708,6 +1731,7 @@ class Solver:
             self.test_inputs,
             self.test_inputs_shapes,
             predicates,
+            possible_colours,
             ex_number_offset=self._TEST_EX_NUMBER_OFFSET,
         )
 
