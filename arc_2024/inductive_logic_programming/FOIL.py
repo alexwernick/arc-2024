@@ -213,6 +213,10 @@ class FOIL:
             for example in old_positive_examples_copy:
                 new_positive_examples.extend(self._extend_example(example, literal))
 
+            new_positive_examples = self._trim_examples_with_duplicate_literals(
+                clause, new_positive_examples, literal
+            )
+
             new_non_extended_positive_examples = self._un_extend_examples(
                 uncovered_pos_examples, new_positive_examples
             )
@@ -257,6 +261,10 @@ class FOIL:
             old_negative_examples_copy = copy.deepcopy(old_negative_examples)
             for example in old_negative_examples_copy:
                 new_negative_examples.extend(self._extend_example(example, literal))
+
+            new_negative_examples = self._trim_examples_with_duplicate_literals(
+                clause, new_negative_examples, literal
+            )
 
             new_negative_count = len(new_negative_examples)
 
@@ -689,3 +697,32 @@ class FOIL:
                 current_level["__fact__"] = fact
             bk_indices[predicate_name] = index
         return bk_indices
+
+    @staticmethod
+    def _trim_examples_with_duplicate_literals(
+        clause: Clause, examples: list[dict[str, Any]], literal: Literal
+    ) -> list[dict[str, Any]]:
+        matching_literals = [
+            lit for lit in clause.body if lit.predicate == literal.predicate
+        ]
+        pairs: list[tuple[str, str]] = []
+
+        for lit in matching_literals:
+            for arg1, arg2 in zip(lit.args, literal.args):
+                if arg1.name != arg2.name:
+                    pairs.append((arg1.name, arg2.name))
+
+        if not pairs:
+            return examples
+
+        examples_trimmed = []
+        for example in examples:
+            all_args_match = True
+            for arg_name_1, arg_name_2 in pairs:
+                if example[arg_name_1] != example[arg_name_2]:
+                    all_args_match = False
+                    break
+            if not all_args_match:
+                examples_trimmed.append(example)
+
+        return examples_trimmed

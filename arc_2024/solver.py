@@ -63,6 +63,7 @@ class Solver:
         inside_blank_space_pred: Predicate
         inside_mask_not_overlapping_pred: Predicate
         mask_overlapping_pred: Predicate
+        mask_overlapping_scaled_to_grid_pred: Predicate
 
         vertical_center_distance_more_than_pred: Predicate
         vertical_center_distance_less_than_pred: Predicate
@@ -152,13 +153,15 @@ class Solver:
         self.outputs_shapes = outputs_shapes
         self.test_inputs_shapes = test_inputs_shapes
 
-    def solve(self, beam_width: int = 1) -> list[NDArray[np.int16]]:
+    def solve(
+        self, beam_width: int = 1, max_clause_length: int = 4
+    ) -> list[NDArray[np.int16]]:
         """
         This function solves the task.
         """
         # We prepare data for the FOIL algorithm
         possible_colours: list[Colour] = self._extract_all_possible_colours(
-            self.inputs_shapes, self.outputs_shapes
+            self.inputs, self.outputs
         )  # noqa: E501
 
         arg_types = self._create_args_types(possible_colours)
@@ -169,10 +172,17 @@ class Solver:
         predicate_list = predicates.to_list()
         if self._has_duplicate_names(predicate_list):
             raise ValueError("Duplicate predicate names")
+
         examples = self._create_examples(possible_colours, variables)
 
         # Background facts for predicates
         background_knowledge = self._create_background_knowledge(predicates)
+
+        # Filter out predicates that are not used
+        predicate_list = self._filter_predicates(predicate_list, background_knowledge)
+        # predicate_list = [predicates.mask_overlapping_scaled_to_grid_pred]
+        # predicate_list.extend(predicates.colour_predicates)
+        # predicate_list.extend(predicates.shape_colour_predicates)
 
         # Clear caches to free up memory
         self._distance_until_overlap_horizontally.cache_clear()
@@ -184,7 +194,7 @@ class Solver:
             predicate_list,
             background_knowledge,
             beam_width=beam_width,
-            max_clause_length=4,
+            max_clause_length=max_clause_length,
             type_extension_limit={
                 arg_types.example_number_arg: 1,
                 arg_types.i_arg: 1,
@@ -353,7 +363,7 @@ class Solver:
     ) -> List[NDArray[np.int16]]:
         # We extend possible colours with any in test inputs
         more_possible_colours: list[Colour] = self._extract_all_possible_colours(
-            self.test_inputs_shapes
+            self.test_inputs
         )
         possible_colours.extend(more_possible_colours)
         possible_colours = list(set(possible_colours))
@@ -515,6 +525,8 @@ class Solver:
                             i,
                             j,
                             input_shape,
+                            output_grid,
+                            input_grid,
                             ex_test_number,
                             input_shape_name,
                             predicates,
@@ -558,6 +570,8 @@ class Solver:
         output_i: int,
         output_j: int,
         input_shape: Shape,
+        output_grid: NDArray[np.int16],
+        input_grid: NDArray[np.int16],
         ex_number: int,
         input_shape_name: str,
         predicates: Predicates,
@@ -715,6 +729,27 @@ class Solver:
                     input_shape_name,
                 )
             )
+
+        # for now we just look at cases where the whole shape
+        # mask is the size of the output grid
+        # we ignore when input grid and output grid the same size
+        if (
+            output_grid.shape == input_shape.mask.shape
+            and input_grid.shape != output_grid.shape
+        ):
+            if input_shape.is_mask_overlapping_ij(
+                output_i + input_shape.position[0], output_j + input_shape.position[1]
+            ):
+                background_knowledge[
+                    predicates.mask_overlapping_scaled_to_grid_pred.name
+                ].add(
+                    (
+                        ex_number,
+                        output_i,
+                        output_j,
+                        input_shape_name,
+                    )
+                )
 
         if input_shape.is_ij_inside_mask_not_overlapping(output_i, output_j):
             background_knowledge[predicates.inside_mask_not_overlapping_pred.name].add(
@@ -1177,6 +1212,11 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )
+        mask_overlapping_scaled_to_grid_pred = Predicate(
+            "mask-overlapping-scaled-to-grid",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )
         mask_overlapping_top_inline_top_pred = Predicate(
             "mask-overlapping-top-inline-top-shape",
             5,
@@ -1524,6 +1564,7 @@ class Solver:
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
+            mask_overlapping_scaled_to_grid_pred=mask_overlapping_scaled_to_grid_pred,
             mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
             mask_overlapping_bot_inline_bot_pred=mask_overlapping_bot_inline_bot_pred,
             mask_overlapping_left_inline_left_pred=mask_overlapping_left_inline_left_pred,  # noqa: E501
@@ -1667,15 +1708,15 @@ class Solver:
 
     @staticmethod
     def _extract_all_possible_colours(
-        *list_list_shapes: List[List[Shape]],
+        *list_arrays: list[NDArray[np.int16]],
     ) -> List[Colour]:
         possible_colours: set[Colour] = set()
 
-        for list_shapes in list_list_shapes:
-            for shapes in list_shapes:
-                for shape in shapes:
-                    if shape.colour is not None:
-                        possible_colours.add(shape.colour)
+        for arrays in list_arrays:
+            for array in arrays:
+                distinct_positives = np.unique(array[array > 0]).tolist()
+                for positive in distinct_positives:
+                    possible_colours.add(Colour(positive))
 
         return list(possible_colours)
 
@@ -2309,3 +2350,15 @@ class Solver:
             return distance_left
 
         return distance_right
+
+    @staticmethod
+    def _filter_predicates(
+        predicate_list: list[Predicate],
+        background_knowledge: "Solver.BackgroundKnowledgeType",
+    ):
+        return [
+            pred
+            for pred in predicate_list
+            if len(background_knowledge[pred.name]) > 0
+            or isinstance(pred, RuleBasedPredicate)
+        ]

@@ -73,14 +73,16 @@ class Interpreter:
             self.test_inputs
         )
 
-        if self._do_inputs_have_seperators():
+        inputs_have_seperators, seperator_colour = self._do_inputs_have_seperators()
+
+        if inputs_have_seperators:
             seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-                self.inputs
+                self.inputs, seperator_colour
             )
             seperator_outputs: List[List[Shape]] = [[] for _ in self.outputs]
             seperator_test_inputs: List[
                 List[Shape]
-            ] = self._interpret_shapes_by_seperator(self.test_inputs)
+            ] = self._interpret_shapes_by_seperator(self.test_inputs, seperator_colour)
 
             # if the two interpretations are different we return both
             seperator_local_search_different = self._shape_interpretations_not_subset(
@@ -517,28 +519,38 @@ class Interpreter:
                 return True
         return False
 
-    def _do_inputs_have_seperators(self) -> bool:
-        def has_seperator(input_grids) -> bool:
+    def _do_inputs_have_seperators(self) -> tuple[bool, int]:
+        def has_seperator(input_grids, colour_value: int) -> bool:
             for grid in input_grids:
-                seperator_colums = self._find_seperator_columns(grid)
-                seperator_rows = self._find_seperator_rows(grid)
+                seperator_colums = self._find_seperator_columns(grid, colour_value)
+                seperator_rows = self._find_seperator_rows(grid, colour_value)
 
                 if not seperator_colums and not seperator_rows:
                     return False
             return True
 
-        return has_seperator(self.inputs) and has_seperator(self.test_inputs)
+        for color in Colour:
+            if has_seperator(self.inputs, color.value) and has_seperator(
+                self.test_inputs, color.value
+            ):
+                return True, color.value
+
+        return False, -1
 
     @staticmethod
     def _interpret_shapes_by_seperator(
-        input_grids: list[NDArray[np.int16]],
+        input_grids: list[NDArray[np.int16]], seperator_colour: int
     ) -> list[list[Shape]]:
-        def get_seperators(input_grids) -> List[tuple[List[Shape], List[Shape]]]:
+        def get_seperators() -> List[tuple[List[Shape], List[Shape]]]:
             seperators: List[tuple[List[Shape], List[Shape]]] = []
 
             for grid in input_grids:
-                seperator_colums = Interpreter._find_seperator_columns(grid)
-                seperator_rows = Interpreter._find_seperator_rows(grid)
+                seperator_colums = Interpreter._find_seperator_columns(
+                    grid, seperator_colour
+                )
+                seperator_rows = Interpreter._find_seperator_rows(
+                    grid, seperator_colour
+                )
 
                 vertical_seperators: List[Shape] = []
                 horizontal_seperators: List[Shape] = []
@@ -558,7 +570,7 @@ class Interpreter:
 
             return seperators
 
-        seperators = get_seperators(input_grids)
+        seperators = get_seperators()
 
         seperator_inputs: List[List[Shape]] = [[] for _ in input_grids]
 
@@ -659,18 +671,18 @@ class Interpreter:
         return len(distinct_positives) > 0
 
     @staticmethod
-    def _find_seperator_columns(arr: NDArray[np.int16]) -> List[int]:
+    def _find_seperator_columns(arr: NDArray[np.int16], colour_value: int) -> List[int]:
         uniform_columns = []
         for col in range(arr.shape[1]):
-            if np.all(arr[:, col] == arr[0, col]) and np.any(arr[:, col] != 0):
+            if np.all(arr[:, col] == colour_value):
                 uniform_columns.append(col)
         return Interpreter._uniform_to_seperators(uniform_columns)
 
     @staticmethod
-    def _find_seperator_rows(arr: NDArray[np.int16]) -> List[int]:
+    def _find_seperator_rows(arr: NDArray[np.int16], colour_value: int) -> List[int]:
         uniform_rows = []
         for row in range(arr.shape[0]):
-            if np.all(arr[row, :] == arr[row, 0]) and np.any(arr[row, :] != 0):
+            if np.all(arr[row, :] == colour_value):
                 uniform_rows.append(row)
 
         return Interpreter._uniform_to_seperators(uniform_rows)

@@ -286,7 +286,7 @@ def test_split_array_on_zeros_with_indices():
     assert sub_arrays_with_indices[3][0] == (11, 8)
 
 
-def test_interprets_seperator_shapes():
+def test_interprets_seperator_shapes_ex1():
     # Setup
     interpreter = create_interpreter_for_task("7c008303")
 
@@ -514,6 +514,153 @@ def test_interprets_seperator_shapes():
                 ],
                 dtype=np.int16,
             ),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    # Verify code
+    assert interpreted_shapes is not None
+    inputs_shapes = interpreted_shapes.inputs
+    test_inputs_shapes = interpreted_shapes.test_inputs
+
+    for input_shapes, expected_input_shapes in zip(
+        inputs_shapes, expected_inputs_shapes
+    ):
+        inps = set(
+            [
+                shape
+                for shape in input_shapes
+                if not isinstance(shape, RotatableMaskShape)
+            ]
+        )
+        assert inps == expected_input_shapes
+
+    for input_shapes, expected_input_shapes in zip(
+        test_inputs_shapes, expected_test_inputs_shapes
+    ):
+        inps = set(
+            [
+                shape
+                for shape in input_shapes
+                if not isinstance(shape, RotatableMaskShape)
+            ]
+        )
+        assert inps == expected_input_shapes
+
+
+def test_interprets_seperator_shapes_ex2():
+    # Setup
+    interpreter = create_interpreter_for_task("0520fde7")
+
+    interpretations = interpreter.interpret_shapes()
+    interpreted_shapes = next(
+        (
+            x
+            for x in interpretations
+            if x.interpret_type == Interpreter.InterpretType.SEPERATOR
+        ),
+        None,
+    )
+
+    expected_inputs_shapes = [set() for _ in range(3)]
+    expected_test_inputs_shapes = [set() for _ in range(1)]
+
+    # ex 1
+    expected_inputs_shapes[0].add(
+        Shape(
+            (0, 3),
+            np.array([[5], [5], [5]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[0].add(
+        Shape(
+            (0, 0),
+            np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[0].add(
+        Shape(
+            (0, 4),
+            np.array([[0, 1, 0], [1, 1, 1], [0, 0, 0]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    # ex 2
+    expected_inputs_shapes[1].add(
+        Shape(
+            (0, 3),
+            np.array([[5], [5], [5]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[1].add(
+        Shape(
+            (0, 0),
+            np.array([[1, 1, 0], [0, 0, 1], [1, 1, 0]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[1].add(
+        Shape(
+            (0, 4),
+            np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    # ex 3
+    expected_inputs_shapes[2].add(
+        Shape(
+            (0, 3),
+            np.array([[5], [5], [5]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[2].add(
+        Shape(
+            (0, 0),
+            np.array([[0, 0, 1], [1, 1, 0], [0, 1, 1]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_inputs_shapes[2].add(
+        Shape(
+            (0, 4),
+            np.array([[0, 0, 0], [1, 0, 1], [1, 0, 1]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    # test ex 1
+    expected_test_inputs_shapes[0].add(
+        Shape(
+            (0, 3),
+            np.array([[5], [5], [5]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_test_inputs_shapes[0].add(
+        Shape(
+            (0, 0),
+            np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]], dtype=np.int16),
+            shape_type=ShapeType.SINGLE_COLOUR,
+        )
+    )
+
+    expected_test_inputs_shapes[0].add(
+        Shape(
+            (0, 4),
+            np.array([[1, 0, 1], [1, 0, 1], [0, 1, 0]], dtype=np.int16),
             shape_type=ShapeType.SINGLE_COLOUR,
         )
     )

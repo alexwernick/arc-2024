@@ -42,6 +42,7 @@ def test_solver(task_id, empty_test_outputs):
 
     interpreter = Interpreter(inputs, outputs, test_inputs)
     interpretations = interpreter.interpret_shapes()
+    exceptions = []
 
     for interpretation in interpretations:
         try:
@@ -62,7 +63,7 @@ def test_solver(task_id, empty_test_outputs):
                 test_inputs_shapes,
             )
 
-            results = solver.solve(beam_width=2)
+            results = solver.solve(beam_width=1, max_clause_length=8)
 
             for result, test_output in zip(results, test_outputs):
                 assert np.array_equal(
@@ -71,8 +72,11 @@ def test_solver(task_id, empty_test_outputs):
 
             return
         except Exception as e:
+            exceptions.append(e)
             print(f"Error: {e}")
 
+    if len(exceptions) > 0:
+        raise exceptions[0]
     assert False, f"No solution found for task_id: {task_id}"
 
 
