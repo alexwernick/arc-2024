@@ -86,7 +86,9 @@ class GridSizeSolver:
         self.outputs_shapes = outputs_shapes
         self.test_inputs_shapes = test_inputs_shapes
 
-    def solve(self, beam_width: int = 1) -> List[NDArray[np.int16]]:
+    def solve(
+        self, beam_width: int = 1, max_clause_length: int = 4
+    ) -> List[NDArray[np.int16]]:
         """
         This function solves the task.
         """
@@ -111,7 +113,7 @@ class GridSizeSolver:
                 arg_types.height_arg: 1,
                 arg_types.shape_arg: 3,
             },
-            max_clause_length=4,
+            max_clause_length=max_clause_length,
         )
         foil.fit(examples)
 

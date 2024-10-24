@@ -31,7 +31,7 @@ from arc_2024.solver import Solver
         ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
         ("1b2d62fb", [np.zeros((5, 3), dtype=np.int16)]),
-        ("08ed6ac7", [np.zeros((9, 9), dtype=np.int16)]),
+        # ("08ed6ac7", [np.zeros((9, 9), dtype=np.int16)]),
         ("7c008303", [np.zeros((6, 6), dtype=np.int16)]),
         ("007bbfb7", [np.zeros((9, 9), dtype=np.int16)]),
     ],

@@ -107,13 +107,18 @@ def run(
                                 grid_size_timeout_seconds,
                                 grid_size_solver.solve,
                                 beam_width=2,
+                                max_clause_length=4,
                             ),
                             interpret_type,
                         )
                     )
                 else:
                     grid_size_solutions.append(
-                        (task_id, grid_size_solver.solve(beam_width=2), interpret_type)
+                        (
+                            task_id,
+                            grid_size_solver.solve(beam_width=2, max_clause_length=4),
+                            interpret_type,
+                        )
                     )
                 print(
                     f"Task {task_id} grid size was solved using interpret_type {interpret_type.name}"  # noqa: E501
@@ -162,10 +167,13 @@ def run(
             try:
                 if run_with_timeout:
                     results = function_with_timeout(
-                        task_timeout_seconds, solver.solve, beam_width=2
+                        task_timeout_seconds,
+                        solver.solve,
+                        beam_width=2,
+                        max_clause_length=6,
                     )
                 else:
-                    results = solver.solve(beam_width=2)
+                    results = solver.solve(beam_width=2, max_clause_length=6)
 
                 print(
                     f"Task {task_id} was solved using interpret_type {interpret_type.name}"  # noqa: E501
