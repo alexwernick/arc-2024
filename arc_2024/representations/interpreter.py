@@ -1,11 +1,16 @@
 import itertools
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 from numpy.typing import NDArray
 
 from arc_2024.representations.colour import Colour
+from arc_2024.representations.helper import (
+    find_smallest_indices_greater_than_q,
+    remove_rows_and_cols_with_value_x,
+    surrounding_coordinates,
+)
 from arc_2024.representations.rotatable_mask_shape import RotatableMaskShape
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
@@ -22,6 +27,7 @@ class Interpreter:
         SEPERATOR = 2
 
     _COLOUR_GROUP_COUNT_THRESHOLD = 6  # max number of colours in groups that we track
+    _WHOLE_BOARD_GROUP_NAME = "WHOLE_BOARD"
 
     inputs: List[NDArray[np.int16]]
     outputs: List[NDArray[np.int16]]
@@ -68,26 +74,36 @@ class Interpreter:
             self.test_inputs
         )
 
-        seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.inputs
-        )
-        seperator_outputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.outputs
-        )
-        seperator_test_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-            self.test_inputs
-        )
+        inputs_have_seperators, seperator_colour = self._do_inputs_have_seperators()
 
-        # if the two interpretations are different we return both
-        seperator_local_search_different = (
-            self._shape_interpretations_not_subset(
-                local_search_inputs, seperator_inputs
+        if inputs_have_seperators:
+            seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
+                self.inputs, seperator_colour
             )
-            # or self._shape_interpretations_different(local_search_outputs, seperator_outputs) # noqa: E501
-            or self._shape_interpretations_not_subset(
+            seperator_outputs: List[List[Shape]] = [[] for _ in self.outputs]
+            seperator_test_inputs: List[
+                List[Shape]
+            ] = self._interpret_shapes_by_seperator(self.test_inputs, seperator_colour)
+
+            # if the two interpretations are different we return both
+            seperator_local_search_different = self._shape_interpretations_not_subset(
+                local_search_inputs, seperator_inputs
+            ) or self._shape_interpretations_not_subset(
                 local_search_test_inputs, seperator_test_inputs
             )
-        )
+
+            if seperator_local_search_different:
+                self._interpret_and_enrich_with_shape_groups(
+                    seperator_inputs, seperator_test_inputs
+                )
+                interpretations.append(
+                    self.InterpretedShapes(
+                        seperator_inputs,
+                        seperator_outputs,
+                        seperator_test_inputs,
+                        Interpreter.InterpretType.SEPERATOR,
+                    )
+                )
 
         self._interpret_and_enrich_with_shape_groups(
             local_search_inputs, local_search_test_inputs
@@ -101,60 +117,7 @@ class Interpreter:
             )
         )
 
-        if seperator_local_search_different:
-            self._interpret_and_enrich_with_shape_groups(
-                seperator_inputs, seperator_test_inputs
-            )
-            interpretations.append(
-                self.InterpretedShapes(
-                    seperator_inputs,
-                    seperator_outputs,
-                    seperator_test_inputs,
-                    Interpreter.InterpretType.SEPERATOR,
-                )
-            )
-
         return interpretations
-
-    @staticmethod
-    def _surrounding_coordinates(i: int, j: int, i_max: int, j_max: int) -> set:
-        directions = [
-            (i - 1, j - 1),
-            (i - 1, j),
-            (i - 1, j + 1),
-            (i, j - 1),
-            (i, j + 1),
-            (i + 1, j - 1),
-            (i + 1, j),
-            (i + 1, j + 1),
-        ]
-
-        return {
-            (x, y)
-            for x, y in directions
-            if x >= 0 and y >= 0 and x < i_max and y < j_max
-        }
-
-    @staticmethod
-    def _remove_zero_rows_and_cols(arr: np.ndarray) -> np.ndarray:
-        # Remove rows with all zeros
-        arr = arr[~np.all(arr == 0, axis=1)]
-        # Remove columns with all zeros
-        arr = arr[:, ~np.all(arr == 0, axis=0)]
-        return arr
-
-    @staticmethod
-    def _find_smallest_indices_greater_than_q(arr: np.ndarray, q) -> Tuple[int, int]:
-        rows_greater_than_q = np.any(arr > q, axis=1)
-        cols_greater_than_q = np.any(arr > q, axis=0)
-
-        min_i = np.where(rows_greater_than_q)[0]
-        min_j = np.where(cols_greater_than_q)[0]
-
-        if min_i.size > 0 and min_j.size > 0:
-            return int(min_i[0]), int(min_j[0])
-        else:
-            raise ValueError(f"No row and column contain '{q}'")
 
     @staticmethod
     def _find_shape_by_search(
@@ -183,7 +146,7 @@ class Interpreter:
 
         # loop over entire area surrounding the shape recursively
         # if the shape is not already in the searched_space
-        shape_frontier = Interpreter._surrounding_coordinates(
+        shape_frontier = surrounding_coordinates(
             starting_j, starting_k, grid.shape[0], grid.shape[1]
         )
         shape_frontier = shape_frontier - searched_space
@@ -204,7 +167,7 @@ class Interpreter:
                     raise ValueError(f"Shape type not supported: {shape_type}")
 
             shape_frontier = shape_frontier.union(
-                Interpreter._surrounding_coordinates(
+                surrounding_coordinates(
                     explore_j,
                     explore_k,
                     grid.shape[0],
@@ -215,8 +178,8 @@ class Interpreter:
             mask[explore_j, explore_k] = grid[explore_j, explore_k]
             searched_space.add((explore_j, explore_k))
 
-        position = Interpreter._find_smallest_indices_greater_than_q(mask, 0)
-        mask = Interpreter._remove_zero_rows_and_cols(mask)
+        position = find_smallest_indices_greater_than_q(mask, 0)
+        mask = remove_rows_and_cols_with_value_x(mask, 0)
 
         if shape_type == ShapeType.MIXED_COLOUR and len(colours) == 1:
             return None
@@ -287,7 +250,27 @@ class Interpreter:
                 Interpreter._interpret_shapes_from_grid(grid, ShapeType.MIXED_COLOUR)
             )
 
+            # We add the whole board as a shape
+            Interpreter._extend_shapes_with_board_shape(grid, shapes[i])
+
         return shapes
+
+    @staticmethod
+    def _extend_shapes_with_board_shape(
+        grid: NDArray[np.int16], shapes: List[Shape]
+    ) -> None:
+        if not Interpreter._has_any_colours(grid):
+            return
+
+        shape_type = Interpreter._single_or_mixed_shape(grid)
+        whole_board_shape = Shape((0, 0), grid, shape_type)
+        whole_board_shape.add_group(Interpreter._WHOLE_BOARD_GROUP_NAME)
+        if whole_board_shape not in shapes:
+            shapes.append(whole_board_shape)
+        else:
+            shapes[shapes.index(whole_board_shape)].add_group(
+                Interpreter._WHOLE_BOARD_GROUP_NAME
+            )
 
     @staticmethod
     def _interpret_and_enrich_with_shape_groups(
@@ -309,8 +292,8 @@ class Interpreter:
             hit_threshold, test_inputs_shapes, test_shapes_grouped_colour_counts
         )
 
-        # TODO: size group of order e.g.
-        # BIGGEST-0 for biggest and SMALLEST-0 for smallest etc
+        # Size order groups
+        Interpreter._enrich_with_shapes_size_ordering(inputs_shapes, test_inputs_shapes)
 
         # Rotatable Mask Shapes
         Interpreter._enrich_with_rotatable_mask_shapes(
@@ -473,7 +456,60 @@ class Interpreter:
                 shape.add_group(f"GROUP_COLOUR_COUNT_DESC-{desc_colour_count_index}")
 
     @staticmethod
-    def _interpret_shapes_by_seperator(
+    def _enrich_with_shapes_size_ordering(
+        list_shapes: List[List[Shape]],
+        list_test_shapes: List[List[Shape]],
+    ):
+        def filter_shapes(shapes: List[Shape]) -> List[Shape]:
+            return [
+                shape
+                for shape in shapes
+                if shape.shape_type != ShapeType.PIXEL
+                and not isinstance(shape, RotatableMaskShape)
+                and Interpreter._WHOLE_BOARD_GROUP_NAME not in shape.shape_groups
+            ]
+
+        def get_shape_count(shapes: List[Shape]) -> int:
+            return len(filter_shapes(shapes))
+
+        def are_counts_of_shapes_same() -> bool:
+            counts = set()
+            for shapes in list_shapes:
+                counts.add(get_shape_count(shapes))
+
+            for shapes in list_test_shapes:
+                counts.add(get_shape_count(shapes))
+
+            return len(counts) == 1
+
+        def assign_ordered_groups(shapes: List[Shape], counts_the_same: bool) -> None:
+            # ascending
+            shapes_ordered_by_size = sorted(
+                filter_shapes(shapes), key=lambda s: s.num_of_coloured_pixels
+            )
+            sizes_without_duplicates = sorted(
+                list({shape.num_of_coloured_pixels for shape in shapes_ordered_by_size})
+            )
+            if len(sizes_without_duplicates) <= 1:
+                return
+
+            for shape in shapes_ordered_by_size:
+                index = sizes_without_duplicates.index(shape.num_of_coloured_pixels)
+                if counts_the_same:
+                    shape.add_group(f"ORDERED-SIZE-{index}")
+                if index == 0:
+                    shape.add_group("SMALLEST")
+                if index == len(sizes_without_duplicates) - 1:
+                    shape.add_group("BIGGEST")
+
+        counts_the_same = are_counts_of_shapes_same()
+        for shapes in list_shapes:
+            assign_ordered_groups(shapes, counts_the_same)
+        for shapes in list_test_shapes:
+            assign_ordered_groups(shapes, counts_the_same)
+
+    @staticmethod
+    def _interpret_shapes_by_seperator_old(
         grids: list[NDArray[np.int16]],
     ) -> list[list[Shape]]:
         list_shapes: List[List[Shape]] = [[] for _ in grids]
@@ -556,3 +592,193 @@ class Interpreter:
             if not set(subset).issubset(set(superset)):
                 return True
         return False
+
+    def _do_inputs_have_seperators(self) -> tuple[bool, int]:
+        def has_seperator(input_grids, colour_value: int) -> bool:
+            for grid in input_grids:
+                seperator_colums = self._find_seperator_columns(grid, colour_value)
+                seperator_rows = self._find_seperator_rows(grid, colour_value)
+
+                if not seperator_colums and not seperator_rows:
+                    return False
+            return True
+
+        for color in Colour:
+            if has_seperator(self.inputs, color.value) and has_seperator(
+                self.test_inputs, color.value
+            ):
+                return True, color.value
+
+        return False, -1
+
+    @staticmethod
+    def _interpret_shapes_by_seperator(
+        input_grids: list[NDArray[np.int16]], seperator_colour: int
+    ) -> list[list[Shape]]:
+        def get_seperators() -> List[tuple[List[Shape], List[Shape]]]:
+            seperators: List[tuple[List[Shape], List[Shape]]] = []
+
+            for grid in input_grids:
+                seperator_colums = Interpreter._find_seperator_columns(
+                    grid, seperator_colour
+                )
+                seperator_rows = Interpreter._find_seperator_rows(
+                    grid, seperator_colour
+                )
+
+                vertical_seperators: List[Shape] = []
+                horizontal_seperators: List[Shape] = []
+
+                for col in seperator_colums:
+                    mask = grid[:, col : col + 1].astype(np.int16)
+                    vertical_seperators.append(
+                        Shape((0, col), mask, Interpreter._single_or_mixed_shape(mask))
+                    )
+
+                for row in seperator_rows:
+                    mask = grid[row : row + 1, :].astype(np.int16)
+                    horizontal_seperators.append(
+                        Shape((row, 0), mask, Interpreter._single_or_mixed_shape(mask))
+                    )
+                seperators.append((vertical_seperators, horizontal_seperators))
+
+            return seperators
+
+        seperators = get_seperators()
+
+        seperator_inputs: List[List[Shape]] = [[] for _ in input_grids]
+
+        for index, (vertical_seperators, horizontal_seperators) in enumerate(
+            seperators
+        ):
+            vertical_indices: list[int] = []
+            horizontal_indices: list[int] = []
+            for vertical_seperator in vertical_seperators:
+                vertical_indices.append(vertical_seperator.position[1])
+                seperator_inputs[index].append(vertical_seperator)
+            for horizontal_seperator in horizontal_seperators:
+                horizontal_indices.append(horizontal_seperator.position[0])
+                seperator_inputs[index].append(horizontal_seperator)
+
+            # they should already be in order but belt and braces
+            vertical_indices = sorted(vertical_indices)
+            horizontal_indices = sorted(horizontal_indices)
+
+            for vertical_indices_index in range(len(vertical_indices) + 1):
+                if len(vertical_indices) == 0:
+                    previous_vertical_index = -1
+                    current_vertical_index = input_grids[index].shape[1]
+                elif vertical_indices_index == len(vertical_indices):
+                    previous_vertical_index = vertical_indices[
+                        vertical_indices_index - 1
+                    ]
+                    current_vertical_index = input_grids[index].shape[1]
+                    if previous_vertical_index == current_vertical_index - 1:
+                        continue  # when the line is on the border
+                elif vertical_indices[vertical_indices_index] == 0:
+                    continue  # when the line is on the border
+                else:
+                    previous_vertical_index = (
+                        vertical_indices[vertical_indices_index - 1]
+                        if vertical_indices_index > 0
+                        else -1
+                    )
+                    current_vertical_index = vertical_indices[vertical_indices_index]
+
+                for horizontal_indices_index in range(len(horizontal_indices) + 1):
+                    if len(horizontal_indices) == 0:
+                        previous_horizontal_index = -1
+                        current_horizontal_index = input_grids[index].shape[0]
+                    elif horizontal_indices_index == len(horizontal_indices):
+                        previous_horizontal_index = horizontal_indices[
+                            horizontal_indices_index - 1
+                        ]
+                        current_horizontal_index = input_grids[index].shape[0]
+                        if previous_horizontal_index == current_horizontal_index - 1:
+                            continue  # when the line is on the border
+
+                    elif horizontal_indices[horizontal_indices_index] == 0:
+                        continue  # when the line is on the border
+                    else:
+                        previous_horizontal_index = (
+                            horizontal_indices[horizontal_indices_index - 1]
+                            if horizontal_indices_index > 0
+                            else -1
+                        )
+                        current_horizontal_index = horizontal_indices[
+                            horizontal_indices_index
+                        ]
+
+                    mask = input_grids[index][
+                        previous_horizontal_index + 1 : current_horizontal_index,
+                        previous_vertical_index + 1 : current_vertical_index,
+                    ].astype(np.int16)
+
+                    if not Interpreter._has_any_colours(mask):
+                        continue
+
+                    seperator_inputs[index].append(
+                        Shape(
+                            (
+                                previous_horizontal_index + 1,
+                                previous_vertical_index + 1,
+                            ),
+                            mask,
+                            Interpreter._single_or_mixed_shape(mask),
+                        )
+                    )
+        return seperator_inputs
+
+    @staticmethod
+    def _single_or_mixed_shape(mask: NDArray[np.int16]) -> ShapeType:
+        distinct_positives = np.unique(mask[mask > 0])
+        has_more_than_one_distinct_positive = len(distinct_positives) > 1
+        return (
+            ShapeType.MIXED_COLOUR
+            if has_more_than_one_distinct_positive
+            else ShapeType.SINGLE_COLOUR
+        )
+
+    @staticmethod
+    def _has_any_colours(mask: NDArray[np.int16]) -> bool:
+        distinct_positives = np.unique(mask[mask > 0])
+        return len(distinct_positives) > 0
+
+    @staticmethod
+    def _find_seperator_columns(arr: NDArray[np.int16], colour_value: int) -> List[int]:
+        uniform_columns = []
+        for col in range(arr.shape[1]):
+            if np.all(arr[:, col] == colour_value):
+                uniform_columns.append(col)
+        return Interpreter._uniform_to_seperators(uniform_columns)
+
+    @staticmethod
+    def _find_seperator_rows(arr: NDArray[np.int16], colour_value: int) -> List[int]:
+        uniform_rows = []
+        for row in range(arr.shape[0]):
+            if np.all(arr[row, :] == colour_value):
+                uniform_rows.append(row)
+
+        return Interpreter._uniform_to_seperators(uniform_rows)
+
+    @staticmethod
+    def _uniform_to_seperators(uniform: List[int]) -> List[int]:
+        seperators = []
+        if len(uniform) <= 1:
+            return uniform
+
+        for index, row in enumerate(uniform):
+            is_next_to_previous = False
+            is_next_to_next = False
+            if index == 0:
+                is_next_to_next = uniform[index + 1] - row == 1
+            elif index == len(uniform) - 1:
+                is_next_to_previous = row - uniform[index - 1] == 1
+            else:
+                is_next_to_previous = row - uniform[index - 1] == 1
+                is_next_to_next = uniform[index + 1] - row == 1
+
+            if not is_next_to_previous and not is_next_to_next:
+                seperators.append(row)
+
+        return seperators

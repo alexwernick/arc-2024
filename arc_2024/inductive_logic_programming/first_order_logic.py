@@ -1,5 +1,6 @@
 import inspect
-from typing import Any, Callable, List, Optional, Union
+from collections import Counter
+from typing import Any, Callable, List, Optional
 
 
 class ArgType:
@@ -80,35 +81,44 @@ class Variable:
         return hash(("Variable", self.name))
 
 
-class Constant:
-    value: Any
+# class Constant:
+#     value: Any
 
-    def __init__(self, value: Any):
-        """
-        Initialize a Constant.
-        :param value: The value of the constant (e.g., 'Alice', 'Bob').
-        """
-        self.value = value  # Value of the constant, could be any hashable type
+#     def __init__(self, value: Any):
+#         """
+#         Initialize a Constant.
+#         :param value: The value of the constant (e.g., 'Alice', 'Bob').
+#         """
+#         self.value = value  # Value of the constant, could be any hashable type
 
-    def __repr__(self):
-        return f"'{self.value}'"  # Represent constants with quotes
+#     def __repr__(self):
+#         return f"'{self.value}'"  # Represent constants with quotes
 
-    def __eq__(self, other):
-        return isinstance(other, Constant) and self.value == other.value
+#     def __eq__(self, other):
+#         return isinstance(other, Constant) and self.value == other.value
 
-    def __hash__(self):
-        return hash(("Constant", self.value))
+#     def __hash__(self):
+#         return hash(("Constant", self.value))
 
 
-Argument = Union[Variable, Constant]
+# Argument = Union[Variable, Constant]
 
 
 class Predicate:
     name: str
     arity: int
     arg_types: list[ArgType]
+    incompatible_predicates: set["Predicate"]
+    more_specialised_predicates: set["Predicate"]
 
-    def __init__(self, name: str, arity: int, arg_types: list[ArgType]):
+    def __init__(
+        self,
+        name: str,
+        arity: int,
+        arg_types: list[ArgType],
+        incompatible_predicates: Optional[set["Predicate"]] = None,
+        more_specialised_predicates: Optional[set["Predicate"]] = None,
+    ):
         """
         Initialize a Predicate.
         :param name: Name of the predicate (e.g., 'parent').
@@ -120,6 +130,12 @@ class Predicate:
         self.name = name
         self.arity = arity
         self.arg_types = arg_types
+        incompatible_predicates = incompatible_predicates or set()
+        self._validate_predicates_match(incompatible_predicates)
+        self.incompatible_predicates = incompatible_predicates
+        more_specialised_predicates = more_specialised_predicates or set()
+        self._validate_predicates_match(more_specialised_predicates)
+        self.more_specialised_predicates = more_specialised_predicates
 
     def __repr__(self):
         """
@@ -137,7 +153,39 @@ class Predicate:
         """
         Hash function to allow predicates to be used in sets and as dictionary keys.
         """
-        return hash((self.name, self.arity))
+        return hash((self.name, self.arity, tuple(self.arg_types)))
+
+    def add_incompatible_predicate(self, inompatible_predicate: "Predicate"):
+        self._validate_predicate_matches(inompatible_predicate)
+        self.incompatible_predicates.add(inompatible_predicate)
+
+    def add_incompatible_predicates(self, inompatible_predicates: set["Predicate"]):
+        self._validate_predicates_match(inompatible_predicates)
+        self.incompatible_predicates.update(inompatible_predicates)
+
+    def add_more_specialised_predicate(self, more_specialised_predicate: "Predicate"):
+        self._validate_predicate_matches(more_specialised_predicate)
+        self.incompatible_predicates.add(more_specialised_predicate)
+
+    def add_more_specialised_predicates(
+        self, more_specialised_predicates: set["Predicate"]
+    ):
+        self._validate_predicates_match(more_specialised_predicates)
+        self.incompatible_predicates.update(more_specialised_predicates)
+
+    def _validate_predicates_match(self, predicates: set["Predicate"]):
+        for p in predicates:
+            self._validate_predicate_matches(p)
+
+    def _validate_predicate_matches(self, predicate: "Predicate"):
+        if predicate.arity != self.arity:
+            raise ValueError(
+                f"Predicate '{self.name}' incompatible with '{predicate.name}' as they have different arity"  # noqa: E501
+            )
+        if predicate.arg_types != self.arg_types:
+            raise ValueError(
+                f"Predicate '{self.name}' incompatible with '{predicate.name}' as they have different argument types"  # noqa: E501
+            )
 
 
 class RuleBasedPredicate(Predicate):
@@ -167,11 +215,11 @@ class RuleBasedPredicate(Predicate):
 
 class Literal:
     predicate: Predicate
-    args: List[Argument]
+    args: List[Variable]
     negated: bool
 
     def __init__(
-        self, predicate: Predicate, args: List[Argument], negated: bool = False
+        self, predicate: Predicate, args: List[Variable], negated: bool = False
     ):
         """
         Initialize a Literal.
@@ -185,7 +233,11 @@ class Literal:
             )
 
         for arg, arg_type in zip(args, predicate.arg_types):
-            if isinstance(arg, Variable) and arg.arg_type != arg_type:
+            if (
+                # isinstance(arg, Variable) and
+                arg.arg_type
+                != arg_type
+            ):
                 raise ValueError(f"Variable '{arg.name}' must be of type '{arg_type}'")
 
         self.predicate = predicate
@@ -217,54 +269,11 @@ class Literal:
         return hash((self.predicate, tuple(self.args), self.negated))
 
 
-def evaluate_literal(
-    literal: Literal,
-    example: dict[str, Any],
-    background_knowledge: dict[str, set[tuple]],
-) -> bool:
-    """
-    Evaluate if a literal is satisfied by an example using background facts.
-    :param literal: The Literal object to evaluate.
-    :param example: A dict mapping variable names to values.
-    :param background_knowledge: A dict mapping predicate names to sets of facts.
-    :return: True if the literal is satisfied, False otherwise.
-    """
-    # Bind the arguments using the example's variable assignments
-    bound_args = []
-    for arg in literal.args:
-        # Check if the argument is a constant
-        # if so append to args
-        if isinstance(arg, Constant):
-            bound_args.append(arg.value)
-            continue
-
-        # Check if the argument is a variable in the example
-        # if so get value from example
-        if isinstance(arg, Variable) and arg.name in example:
-            bound_args.append(example[arg.name])
-            continue
-
-        raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
-
-    # If it's rule based we use rule and don't evaluate background knowledge
-    if isinstance(literal.predicate, RuleBasedPredicate):
-        if literal.negated:
-            return not literal.predicate.evaluate(*bound_args)
-        return literal.predicate.evaluate(*bound_args)
-
-    # Retrieve the predicate's facts
-    predicate_facts = background_knowledge.get(literal.predicate.name, set())
-
-    # Check if the bound arguments are in the predicate's facts
-    if literal.negated:
-        return tuple(bound_args) not in predicate_facts
-    return tuple(bound_args) in predicate_facts
-
-
 class Clause:
     head: Literal
     body: List[Literal]
     variables: set[Variable]
+    incompatable_literals: set[Literal]
 
     def __init__(self, head: Literal):
         """
@@ -274,10 +283,19 @@ class Clause:
         self.head = head  # The target predicate as a Literal object
         self.body = []  # List of Literal objects in the rule's body
         self.variables = set()  # Variables used in the rule
+        self.incompatable_literals = (
+            set()
+        )  # Literals that are incompatible with this clause
 
         for arg in head.args:
-            if isinstance(arg, Variable):
-                self.variables.add(arg)  # Variables used in the rule
+            # if isinstance(arg, Variable):
+            self.variables.add(arg)  # Variables used in the rule
+
+    def arg_type_var_names(self) -> dict[ArgType, list[str]]:
+        return {
+            arg_type: [var.name for var in self.variables if var.arg_type == arg_type]
+            for arg_type in {var.arg_type for var in self.variables}
+        }
 
     def add_literal(self, literal: Literal):
         """
@@ -287,8 +305,24 @@ class Clause:
         self.body.append(literal)
         # Update the list of variables with variables from the new literal
         self.variables.update(
-            {arg for arg in literal.args if isinstance(arg, Variable)}
+            {arg for arg in literal.args}  # if isinstance(arg, Variable)
         )
+
+        for incompatable_predicate in literal.predicate.incompatible_predicates:
+            # We can do this as we have restricted the arguments to be the same
+            # See the the Predicate class
+            incompatable_literal = Literal(incompatable_predicate, literal.args)
+            self.incompatable_literals.add(incompatable_literal)
+
+    def copy(self) -> "Clause":
+        """
+        Create a copy of the clause.
+        """
+        new_clause = Clause(self.head)
+        new_clause.body = self.body.copy()
+        new_clause.variables = self.variables.copy()
+        new_clause.incompatable_literals = self.incompatable_literals.copy()
+        return new_clause
 
     def covers(
         self,
@@ -318,8 +352,13 @@ class Clause:
         # Evaluate each literal in the body with the given example
         variable_assignments = example.copy()
 
+        # get the args that can't all be equal
+        arg_type_var_names = self.arg_type_var_names()
+
         # Attempt to satisfy the body literals with possible bindings
-        return self._satisfy_body(variable_assignments, background_knowledge, 0)
+        return self._satisfy_body(
+            variable_assignments, background_knowledge, arg_type_var_names, 0
+        )
 
         # for literal in self.body:
         #     if not evaluate_literal(literal, example, background_knowledge):
@@ -331,6 +370,7 @@ class Clause:
         literal: Literal,
         variable_assignments: dict[str, Any],
         background_knowledge: dict[str, set[tuple]],
+        arg_type_var_names: dict[ArgType, list[str]],
     ) -> list[dict[str, Any]]:
         """
         Find possible variable bindings for a literal given current assignments.
@@ -338,22 +378,35 @@ class Clause:
         :param variable_assignments: Current assignments for variables (dict).
         :return: A list of possible new bindings (list of dicts).
         """
+
+        def is_valid_value(
+            value: Any, example: dict[str, Any], arg_type: ArgType
+        ) -> bool:
+            if arg_type not in arg_type_var_names:
+                return True
+
+            for var_name in arg_type_var_names[arg_type]:
+                if var_name in example and example[var_name] == value:
+                    return False
+            return True
+
         # TODO: How does this work with negated literals?
         # Right now I don't think it does
 
         # Prepare the arguments with current assignments, identify unbound variables
         args = []
         for arg in literal.args:
-            if isinstance(arg, Variable):
-                if arg.name in variable_assignments:
-                    args.append(variable_assignments[arg.name])
-                else:
-                    args.append(None)
-            elif isinstance(arg, Constant):
-                args.append(arg.value)
+            # if isinstance(arg, Variable):
+            if arg.name in variable_assignments:
+                args.append(variable_assignments[arg.name])
             else:
-                # Should not happen
-                return []
+                args.append(None)
+
+            # elif isinstance(arg, Constant):
+            #     args.append(arg.value)
+            # else:
+            #     # Should not happen
+            #     return []
 
         possible_bindings = []
         # If it's rule based we use rule and don't evaluate background knowledge
@@ -361,32 +414,37 @@ class Clause:
             extended_args = [args.copy()]
             for i, (arg_val, arg) in enumerate(zip(args, literal.args)):
                 if arg_val is None:
-                    if isinstance(arg, Variable):
-                        new_extended_args = []
-                        for ex_arg in extended_args:
-                            for possible_val in arg.arg_type.possible_values(
-                                variable_assignments
+                    # if isinstance(arg, Variable):
+                    new_extended_args = []
+                    for ex_arg in extended_args:
+                        for possible_val in arg.arg_type.possible_values(
+                            variable_assignments
+                        ):
+                            if not is_valid_value(
+                                possible_val, variable_assignments, arg.arg_type
                             ):
-                                copy = ex_arg.copy()
-                                copy[i] = possible_val
-                                new_extended_args.append(copy)
-                        extended_args = new_extended_args
-                    else:
-                        raise Exception(
-                            "Unexpected non-varable arg in unbound variable position"
-                        )
+                                continue
+
+                            copy = ex_arg.copy()
+                            copy[i] = possible_val
+                            new_extended_args.append(copy)
+                    extended_args = new_extended_args
+                    # else:
+                    #     raise Exception(
+                    #         "Unexpected non-varable arg in unbound variable position"
+                    #     )
 
             for ex_args in extended_args:
                 new_bindings = {}
                 if literal.predicate.evaluate(*ex_args):
                     for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
-                        if isinstance(arg, Variable):
-                            if arg_val is None:
-                                new_bindings[arg.name] = ex_arg
-                        else:
-                            raise Exception(
-                                "Unexpected non-varable arg in unbound variable position"  # noqa: E501
-                            )
+                        # if isinstance(arg, Variable):
+                        if arg_val is None:
+                            new_bindings[arg.name] = ex_arg
+                        # else:
+                        #     raise Exception(
+                        #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
+                        #     )
                     possible_bindings.append(new_bindings)
         else:
             # Retrieve facts for the predicate
@@ -400,12 +458,19 @@ class Clause:
                 for arg_val, fact_val, arg in zip(args, fact, literal.args):
                     if arg_val is None:
                         # Unbound variable; propose a new binding
-                        if isinstance(arg, Variable):
-                            new_bindings[arg.name] = fact_val
-                        else:
-                            raise Exception(
-                                "Unexpected non-varable arg in unbound variable position"  # noqa: E501
-                            )
+                        # if isinstance(arg, Variable):
+
+                        if not is_valid_value(
+                            fact_val, variable_assignments, arg.arg_type
+                        ):
+                            match = False
+                            break  # No need to check further
+
+                        new_bindings[arg.name] = fact_val
+                        # else:
+                        #     raise Exception(
+                        #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
+                        #     )
 
                     elif arg_val != fact_val:
                         # Known variable assignment does not match the fact's value
@@ -421,6 +486,7 @@ class Clause:
         self,
         variable_assignments: dict[str, Any],
         background_knowledge: dict[str, set[tuple]],
+        arg_type_var_names: dict[ArgType, list[str]],
         literal_index: int,
     ):
         """
@@ -437,7 +503,7 @@ class Clause:
 
         # Get possible bindings for the current literal
         possible_bindings: list[dict[str, Any]] = self._get_possible_bindings(
-            literal, variable_assignments, background_knowledge
+            literal, variable_assignments, background_knowledge, arg_type_var_names
         )
 
         for binding in possible_bindings:
@@ -447,8 +513,16 @@ class Clause:
 
             # Recursive call to satisfy the next literal
             if self._satisfy_body(
-                new_assignments, background_knowledge, literal_index + 1
+                new_assignments,
+                background_knowledge,
+                arg_type_var_names,
+                literal_index + 1,
             ):
                 return True  # Found satisfying assignments for all literals
 
         return False  # No satisfying assignments found for this literal
+
+    def _find_duplicate_predicates(self):
+        preds = [lit.predicate for lit in self.body]
+        counts = Counter(preds)
+        return [item for item, count in counts.items() if count > 1]

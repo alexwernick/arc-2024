@@ -1,28 +1,31 @@
 import copy
 import itertools
 import math
+from functools import lru_cache
 from typing import Any, NamedTuple
 
-from arc_2024.inductive_logic_programming.first_order_logic import (
+from arc_2024.inductive_logic_programming.first_order_logic import (  # Constant,
     ArgType,
     Clause,
-    Constant,
     Literal,
     Predicate,
+    RuleBasedPredicate,
     Variable,
-    evaluate_literal,
 )
 
 
 class FOIL:
+    _DEFAULT_TYPE_EXTENSION_LIMIT = 8
+
     target_literal: Literal
     predicates: list[Predicate]
     background_knowledge: dict[str, set[tuple]]
+    background_knowledge_indices: dict
     allow_recursion: bool
     beam_width: int
     _max_clause_length: int
     rules: list[Clause]
-    _non_extendable_types: set[ArgType]
+    _type_extension_limit: dict[ArgType, int]
 
     class BeamItem(NamedTuple):
         clause: Clause
@@ -45,7 +48,7 @@ class FOIL:
         allow_recursion: bool = False,
         beam_width: int = 1,
         max_clause_length: int = 7,
-        non_extendable_types=set(),
+        type_extension_limit={},
     ):
         """
         Initialize the FOIL algorithm.
@@ -57,10 +60,11 @@ class FOIL:
         self.target_literal = target_literal
         self.predicates = predicates
         self.background_knowledge = background_knowledge
+        self.background_knowledge_indices = self._build_background_knowledge_indices()
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
         self._max_clause_length = max_clause_length
-        self._non_extendable_types = non_extendable_types
+        self._type_extension_limit = type_extension_limit
         self.rules = []
 
     def fit(self, examples: list[tuple[bool, dict[str, Any]]]):
@@ -141,7 +145,7 @@ class FOIL:
                 )
 
                 for best_literal in best_literals:
-                    clause = copy.deepcopy(beam_item.clause)
+                    clause = beam_item.clause.copy()
                     clause.add_literal(best_literal.literal)
                     new_beam.append(
                         FOIL.BeamItem(
@@ -196,7 +200,8 @@ class FOIL:
         best_literals: list[FOIL.BestLiteral] = []
 
         # Evaluate each candidate literal
-        for literal in candidate_literals:
+        while candidate_literals:
+            literal = candidate_literals.pop(0)
             if literal in clause.body:
                 continue  # Avoid cycles
 
@@ -204,8 +209,14 @@ class FOIL:
                 continue  # Avoid cycles
 
             new_positive_examples: list[dict[str, Any]] = []
-            for example in old_positive_examples:
+            old_positive_examples_copy = copy.deepcopy(old_positive_examples)
+
+            for example in old_positive_examples_copy:
                 new_positive_examples.extend(self._extend_example(example, literal))
+
+            new_positive_examples = self._trim_examples_with_duplicate_literals(
+                clause, new_positive_examples, literal
+            )
 
             new_non_extended_positive_examples = self._un_extend_examples(
                 uncovered_pos_examples, new_positive_examples
@@ -220,6 +231,15 @@ class FOIL:
             old_negative_count = len(old_negative_examples)
 
             if not new_positive_count:
+                more_specilaised_literals = {
+                    Literal(pre, literal.args)
+                    for pre in literal.predicate.more_specialised_predicates
+                }
+                candidate_literals = [
+                    lit
+                    for lit in candidate_literals
+                    if lit not in more_specilaised_literals
+                ]
                 continue  # Must cover some positive examples
 
             # Now compute the maximum possible gain from substitutions
@@ -239,8 +259,13 @@ class FOIL:
                 continue
 
             new_negative_examples: list[dict[str, Any]] = []
-            for example in old_negative_examples:
+            old_negative_examples_copy = copy.deepcopy(old_negative_examples)
+            for example in old_negative_examples_copy:
                 new_negative_examples.extend(self._extend_example(example, literal))
+
+            new_negative_examples = self._trim_examples_with_duplicate_literals(
+                clause, new_negative_examples, literal
+            )
 
             new_negative_count = len(new_negative_examples)
 
@@ -286,40 +311,66 @@ class FOIL:
         # literal will be like Q(V1, V3)
         # need to loop over possible values
         # for V3 and add to examples if it satisfies the literal
-        extended_examples: list[dict[str, Any]] = []
-        new_vars: list[Variable] = []
+        extended_examples: list[dict[str, Any]] = [example]
 
-        for arg in literal_to_add.args:
-            # Check if the argument is a constant
-            # if so append to args
-            if isinstance(arg, Constant):
-                continue
+        new_vars: list[Variable] = [
+            arg for arg in literal_to_add.args if arg.name not in example
+        ]
 
-            # Check if the argument is a variable in the example
-            # if so get value from example
-            if isinstance(arg, Variable) and arg.name not in example:
-                new_vars.append(arg)
-                continue
+        # new_vars: list[Variable] = []
+        # for arg in literal_to_add.args:
+        #     # Check if the argument is a variable in the example
+        #     # if so get value from example
+        #     if (
+        #         isinstance(arg, Variable) and
+        #         arg.name not in example):
+        #         new_vars.append(arg)
+        #         continue
 
-        if len(new_vars) == 0:
-            if evaluate_literal(literal_to_add, example, self.background_knowledge):
-                return [example]  # no new variables to add
-            return []
+        #     # Check if the argument is a constant
+        #     # if so append to args
+        #     if isinstance(arg, Constant):
+        #         continue
+
+        return self._extend_example_with_new_vars(
+            new_vars, extended_examples, literal_to_add
+        )
+
+    # @profile
+    def _extend_example_with_new_vars(
+        self,
+        new_vars: list[Variable],
+        extended_examples: list[dict[str, Any]],
+        literal_to_add: Literal,
+    ) -> list[dict[str, Any]]:
+        valid_extended_examples: list[dict[str, Any]] = []
 
         if len(new_vars) > 1:
-            raise ValueError("We should only have at most one new variable to add")
+            new_extended_examples: list[dict[str, Any]] = []
+            new_var = new_vars.pop()
+            for example in extended_examples:
+                for value in new_var.arg_type.possible_values(example):
+                    example[new_var.name] = value
+                    if self._partial_evaluate_literal(literal_to_add, example):
+                        new_extended_examples.append(copy.copy(example))
 
-        new_var: Variable = new_vars[0]
+            return self._extend_example_with_new_vars(
+                new_vars, new_extended_examples, literal_to_add
+            )
 
-        for value in new_var.arg_type.possible_values(example):
-            extended_example = copy.deepcopy(example)
-            extended_example[new_var.name] = value
-            if evaluate_literal(
-                literal_to_add, extended_example, self.background_knowledge
-            ):
-                extended_examples.append(extended_example)
+        if len(new_vars) == 1:
+            new_var = new_vars.pop()
+            for example in extended_examples:
+                for value in new_var.arg_type.possible_values(example):
+                    example[new_var.name] = value
+                    if self._evaluate_literal(literal_to_add, example):
+                        valid_extended_examples.append(copy.copy(example))
+            return valid_extended_examples
 
-        return extended_examples
+        for example in extended_examples:
+            if self._evaluate_literal(literal_to_add, example):
+                valid_extended_examples.append(example)  # no new variables to add
+        return valid_extended_examples
 
     def _new_literals_for_predicate(
         self,
@@ -338,17 +389,31 @@ class FOIL:
         # get the literals already used in the clause so we don't repeat
         used_literals = set(clause.body)
 
-        # if isinstance(predicate, RuleBasedPredicate):
-        #     # Rule based preds need bound args when
-        #     # checking coverage
-        #     allow_variable_extension = False
-
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
         for var in current_vars:
             for i, arg_type in enumerate(predicate.arg_types):
                 if arg_type == var.arg_type:
                     valid_vars_per_arg[i].append(var)
+
+        var_numbers: list[int] = []
+        for var in current_vars:
+            var_numbers.append(int(var.name[1:]))
+
+        current_max_var_num = max(var_numbers)
+
+        if allow_variable_extension:
+            # Introduce new variables (e.g., V1, V2)
+            for arg_type, valid_vars in zip(predicate.arg_types, valid_vars_per_arg):
+                extension_limit = self._type_extension_limit.get(
+                    arg_type, self._DEFAULT_TYPE_EXTENSION_LIMIT
+                )
+                current_count = len([v for v in current_vars if v.arg_type == arg_type])
+
+                if current_count >= extension_limit:
+                    continue
+                current_max_var_num = current_max_var_num + 1
+                valid_vars.append(Variable(f"V{current_max_var_num}", arg_type))
 
         # Generate all combinations of existing variables
         var_combinations = [
@@ -357,32 +422,17 @@ class FOIL:
             if len(set(combo)) == len(combo)  # avoid duplicates
         ]
 
-        if allow_variable_extension:
-            # Introduce new variables (e.g., V1, V2)
-            # We create a single additional variable for each type of argument
-            new_vars_per_arg: list[list[Variable]] = [
-                [] for _ in range(predicate.arity)
-            ]
-            new_var_number = 1 + len(clause.variables)
-            for i, arg_type in enumerate(predicate.arg_types):
-                new_vars_per_arg[i].append(Variable(f"V{new_var_number}", arg_type))
-
-            # append the combinations of the new variable with the other variables
-            for i, new_vars in enumerate(new_vars_per_arg):
-                if new_vars[0].arg_type in self._non_extendable_types:
-                    continue
-
-                new_vars_with_other_args_per_arg = (
-                    valid_vars_per_arg[:i] + [new_vars] + valid_vars_per_arg[i + 1 :]
-                )
-                var_combinations.extend(
-                    itertools.product(*new_vars_with_other_args_per_arg)
-                )
+        var_combinations_linked_to_clause = []
+        for var_combo in var_combinations:
+            if len(set(var_combo).intersection(clause.variables)) > 0:
+                var_combinations_linked_to_clause.append(var_combo)
 
         # Create literals for each variable combination
-        for vars in var_combinations:
+        for vars in var_combinations_linked_to_clause:
             variables = list(vars)
             literal = Literal(predicate, variables)
+            if literal in clause.incompatable_literals:
+                continue
             # negated_literal = Literal(predicate, variables, negated=True)
             # Avoid adding duplicate literals
             if literal not in used_literals:
@@ -494,3 +544,211 @@ class FOIL:
             if not item.old_negative_examples:
                 return True
         return False
+
+    # @profile
+    def _evaluate_literal(
+        self,
+        literal: Literal,
+        example: dict[str, Any],
+    ) -> bool:
+        """
+        Evaluate if a literal is satisfied by an example using background facts.
+        :param literal: The Literal object to evaluate.
+        :param example: A dict mapping variable names to values.
+        :param background_knowledge: A dict mapping predicate names to sets of facts.
+        :return: True if the literal is satisfied, False otherwise.
+        """
+        # Bind the arguments using the example's variable assignments
+        bound_args = []
+        for arg in literal.args:
+            # Check if the argument is a variable in the example
+            # if so get value from example
+            if (
+                # isinstance(arg, Variable) and
+                arg.name
+                in example
+            ):
+                bound_args.append(example[arg.name])
+                continue
+
+            # Check if the argument is a constant
+            # if so append to args
+            # if isinstance(arg, Constant):
+            #     bound_args.append(arg.value)
+            #     continue
+
+            raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
+
+        # If it's rule based we use rule and don't evaluate background knowledge
+        if isinstance(literal.predicate, RuleBasedPredicate):
+            if literal.negated:
+                return not literal.predicate.evaluate(*bound_args)
+            return literal.predicate.evaluate(*bound_args)
+
+        fact: bool = self._is_a_fact(literal.predicate.name, tuple(bound_args))
+
+        # Check if the bound arguments are in the predicate's facts
+        if literal.negated:
+            return not fact
+        return fact
+
+    @lru_cache(maxsize=5000000)
+    def _is_a_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+        # Retrieve the predicate's facts
+        predicate_facts = self.background_knowledge.get(predicate_name, set())
+        return bound_args in predicate_facts
+
+    # @profile
+    def _partial_evaluate_literal(
+        self,
+        literal: Literal,
+        example: dict[str, Any],
+    ) -> bool:
+        """
+        Evaluate if literal can ever be satisfied by an example
+        :param literal: The Literal object to evaluate.
+        :param example: A dict mapping variable names to values.
+        :param background_knowledge: A dict mapping predicate names to sets of facts.
+        :return: True if the literal is satisfied, False otherwise.
+        """
+        # Bind the arguments using the example's variable assignments
+        # bound_args = []
+        # all_vars_bound = True
+        # for arg in literal.args:
+        #     # Check if the argument is a variable in the example
+        #     # if so get value from example
+        #     if (
+        #         isinstance(arg, Variable) and
+        #         arg.name in example):
+        #         bound_args.append(example[arg.name])
+        #         continue
+
+        #     # Check if the argument is a constant
+        #     # if so append to args
+        #     if isinstance(arg, Constant):
+        #         bound_args.append(arg.value)
+        #         continue
+
+        #     all_vars_bound = False
+        #     bound_args.append(None)
+
+        bound_args = [
+            example[arg.name] if arg.name in example else None for arg in literal.args
+        ]
+
+        all_vars_bound = all(arg is not None for arg in bound_args)
+
+        # If it's rule based we have to assume all good
+        if isinstance(literal.predicate, RuleBasedPredicate):
+            if not all_vars_bound:
+                return True
+
+            if literal.negated:
+                return not literal.predicate.evaluate(*bound_args)
+            return literal.predicate.evaluate(*bound_args)
+
+        # Check if the bound arguments are in the predicate's facts
+        possible_fact = self._is_a_possible_fact(
+            literal.predicate.name, tuple(bound_args)
+        )
+
+        if literal.negated:
+            return not possible_fact
+        return possible_fact
+
+    def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
+        index = self.background_knowledge_indices.get(predicate_name)
+        if not index:
+            return False
+        return self._search_index(index, bound_args, 0)
+
+    def _search_index(self, index, bound_args, position, allow_none=True):
+        if "__fact__" in index:
+            return True
+        if position >= len(bound_args):
+            return False
+        arg_value = bound_args[position]
+        next_indices = []
+        if arg_value is None:
+            if not allow_none:
+                raise ValueError("Unexpected None value in bound arguments")
+            # Wildcard, explore all possible values at this position
+            next_indices = index.values()
+        else:
+            if arg_value in index:
+                next_indices = [index[arg_value]]
+            else:
+                return False  # No match possible
+        for next_index in next_indices:
+            if self._search_index(next_index, bound_args, position + 1):
+                return True
+        return False
+
+    def _build_background_knowledge_indices(self) -> dict:
+        bk_indices = {}
+        for predicate_name, facts in self.background_knowledge.items():
+            index: dict = {}
+            for fact in facts:
+                current_level = index
+                for i, value in enumerate(fact):
+                    if value not in current_level:
+                        current_level[value] = {}
+                    current_level = current_level[value]
+                # Store the fact at the deepest level
+                current_level["__fact__"] = fact
+            bk_indices[predicate_name] = index
+        return bk_indices
+
+    # @staticmethod
+    # def _trim_examples_with_duplicate_literals_depricated(
+    #     clause: Clause, examples: list[dict[str, Any]], literal: Literal
+    # ) -> list[dict[str, Any]]:
+    #     matching_literals = [
+    #         lit for lit in clause.body if lit.predicate == literal.predicate
+    #     ]
+    #     pairs: list[tuple[str, str]] = []
+
+    #     for lit in matching_literals:
+    #         for arg1, arg2 in zip(lit.args, literal.args):
+    #             if arg1.name != arg2.name:
+    #                 pairs.append((arg1.name, arg2.name))
+
+    #     if not pairs:
+    #         return examples
+
+    #     examples_trimmed = []
+    #     for example in examples:
+    #         all_args_match = True
+    #         for arg_name_1, arg_name_2 in pairs:
+    #             if example[arg_name_1] != example[arg_name_2]:
+    #                 all_args_match = False
+    #                 break
+    #         if not all_args_match:
+    #             examples_trimmed.append(example)
+
+    #     return examples_trimmed
+
+    @staticmethod
+    def _trim_examples_with_duplicate_literals(
+        clause: Clause, examples: list[dict[str, Any]], literal: Literal
+    ) -> list[dict[str, Any]]:
+        pairs: list[tuple[str, str]] = []
+        for arg in literal.args:
+            for var in clause.variables:
+                if arg.arg_type == var.arg_type and arg.name != var.name:
+                    pairs.append((arg.name, var.name))
+
+        if not pairs:
+            return examples
+
+        examples_trimmed = []
+        for example in examples:
+            args_match = False
+            for arg_name_1, arg_name_2 in pairs:
+                if example[arg_name_1] == example[arg_name_2]:
+                    args_match = True
+                    break
+            if not args_match:
+                examples_trimmed.append(example)
+
+        return examples_trimmed

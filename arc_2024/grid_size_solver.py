@@ -86,7 +86,9 @@ class GridSizeSolver:
         self.outputs_shapes = outputs_shapes
         self.test_inputs_shapes = test_inputs_shapes
 
-    def solve(self, beam_width: int = 1) -> List[NDArray[np.int16]]:
+    def solve(
+        self, beam_width: int = 1, max_clause_length: int = 4
+    ) -> List[NDArray[np.int16]]:
         """
         This function solves the task.
         """
@@ -95,6 +97,8 @@ class GridSizeSolver:
         target_literal = self._create_target_literal(arg_types, variables)
         predicates = self._create_predicates(arg_types)
         predicate_list = predicates.to_list()
+        if self._has_duplicate_names(predicate_list):
+            raise ValueError("Duplicate predicate names")
         examples = self._create_examples(variables)
         background_knowledge = self._create_background_knowledge(predicates)
 
@@ -103,12 +107,13 @@ class GridSizeSolver:
             predicate_list,
             background_knowledge,
             beam_width=beam_width,
-            non_extendable_types={
-                arg_types.width_arg,
-                arg_types.height_arg,
-                arg_types.example_number_arg,
+            type_extension_limit={
+                arg_types.example_number_arg: 1,
+                arg_types.width_arg: 1,
+                arg_types.height_arg: 1,
+                arg_types.shape_arg: 3,
             },
-            max_clause_length=4,
+            max_clause_length=max_clause_length,
         )
         foil.fit(examples)
 
@@ -580,3 +585,13 @@ class GridSizeSolver:
     @staticmethod
     def _get_is_shape_group_func(shape_group: str) -> Callable[..., bool]:
         return lambda _, shape: shape_group in shape.shape_groups
+
+    @staticmethod
+    def _has_duplicate_names(predicate_list: list[Predicate]):
+        names = set()
+        for pred in predicate_list:
+            name = pred.name
+            if name in names:
+                return True
+            names.add(name)
+        return False

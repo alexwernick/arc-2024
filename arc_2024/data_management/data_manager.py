@@ -159,7 +159,10 @@ class DataManager:
                 raise ValueError("Array must be 2D")
 
             solution.append(
-                {"attempt_1": output.tolist(), "attempt_2": output.tolist()}
+                {
+                    "attempt_1": output.astype(int).tolist(),
+                    "attempt_2": output.astype(int).tolist(),
+                }
             )
 
         # Update the JSON content

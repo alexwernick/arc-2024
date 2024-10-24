@@ -1,5 +1,6 @@
 from arc_2024.inductive_logic_programming.first_order_logic import (
     ArgType,
+    Clause,
     Literal,
     Predicate,
     Variable,
@@ -76,3 +77,38 @@ def test_FOIL_with_simple_example():
 
     for example in examples:
         assert foil.predict(example[1]) == example[0]
+
+
+def test_new_literals_for_predicate():
+    node_type = ArgType("node", [0, 1, 2, 3, 4, 5, 6, 7, 8])  # 9 nodes
+    another_type = ArgType("another", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    and_another_type = ArgType("and_another", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+
+    target_predicate = Predicate("can-reach", 2, [node_type, node_type])
+
+    V1 = Variable("V1", node_type)
+    V2 = Variable("V2", node_type)
+
+    target_literal = Literal(predicate=target_predicate, args=[V1, V2])
+    linked_to_pred = Predicate("linked-to", 2, [node_type, node_type])
+    predicates = [linked_to_pred]
+    foil = FOIL(target_literal, predicates, {})
+
+    pre_with_one_arg = Predicate("one-arg", 1, [node_type])
+    per_with_two_args = Predicate("two-arg", 2, [node_type, another_type])
+    pre_with_three_arg = Predicate(
+        "three-arg", 3, [node_type, another_type, and_another_type]
+    )
+
+    clause = Clause(target_literal)
+    literals = foil._new_literals_for_predicate(per_with_two_args, clause)
+
+    assert len(literals) == 2
+
+    literals = foil._new_literals_for_predicate(pre_with_one_arg, clause)
+
+    assert len(literals) == 2
+
+    literals = foil._new_literals_for_predicate(pre_with_three_arg, clause)
+
+    assert len(literals) == 2
