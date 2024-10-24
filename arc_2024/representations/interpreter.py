@@ -27,6 +27,7 @@ class Interpreter:
         SEPERATOR = 2
 
     _COLOUR_GROUP_COUNT_THRESHOLD = 6  # max number of colours in groups that we track
+    _WHOLE_BOARD_GROUP_NAME = "WHOLE_BOARD"
 
     inputs: List[NDArray[np.int16]]
     outputs: List[NDArray[np.int16]]
@@ -249,7 +250,27 @@ class Interpreter:
                 Interpreter._interpret_shapes_from_grid(grid, ShapeType.MIXED_COLOUR)
             )
 
+            # We add the whole board as a shape
+            Interpreter._extend_shapes_with_board_shape(grid, shapes[i])
+
         return shapes
+
+    @staticmethod
+    def _extend_shapes_with_board_shape(
+        grid: NDArray[np.int16], shapes: List[Shape]
+    ) -> None:
+        if not Interpreter._has_any_colours(grid):
+            return
+
+        shape_type = Interpreter._single_or_mixed_shape(grid)
+        whole_board_shape = Shape((0, 0), grid, shape_type)
+        whole_board_shape.add_group(Interpreter._WHOLE_BOARD_GROUP_NAME)
+        if whole_board_shape not in shapes:
+            shapes.append(whole_board_shape)
+        else:
+            shapes[shapes.index(whole_board_shape)].add_group(
+                Interpreter._WHOLE_BOARD_GROUP_NAME
+            )
 
     @staticmethod
     def _interpret_and_enrich_with_shape_groups(
@@ -439,14 +460,17 @@ class Interpreter:
         list_shapes: List[List[Shape]],
         list_test_shapes: List[List[Shape]],
     ):
-        def get_shape_count(shapes: List[Shape]) -> int:
-            filtered_shapes = [
+        def filter_shapes(shapes: List[Shape]) -> List[Shape]:
+            return [
                 shape
                 for shape in shapes
                 if shape.shape_type != ShapeType.PIXEL
                 and not isinstance(shape, RotatableMaskShape)
+                and Interpreter._WHOLE_BOARD_GROUP_NAME not in shape.shape_groups
             ]
-            return len(filtered_shapes)
+
+        def get_shape_count(shapes: List[Shape]) -> int:
+            return len(filter_shapes(shapes))
 
         def are_counts_of_shapes_same() -> bool:
             counts = set()
@@ -460,14 +484,8 @@ class Interpreter:
 
         def assign_ordered_groups(shapes: List[Shape], counts_the_same: bool) -> None:
             # ascending
-            filtered_shapes = [
-                shape
-                for shape in shapes
-                if shape.shape_type != ShapeType.PIXEL
-                and not isinstance(shape, RotatableMaskShape)
-            ]
             shapes_ordered_by_size = sorted(
-                filtered_shapes, key=lambda s: s.num_of_coloured_pixels
+                filter_shapes(shapes), key=lambda s: s.num_of_coloured_pixels
             )
             sizes_without_duplicates = sorted(
                 list({shape.num_of_coloured_pixels for shape in shapes_ordered_by_size})

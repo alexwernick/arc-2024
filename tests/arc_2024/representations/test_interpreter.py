@@ -101,14 +101,24 @@ def test_interprets_all_shapes(interpreter_dictiorary, task_id):
 
     def check_shapes(shapes, expected_shapes):
         for i, expected_shapes_per_example in enumerate(expected_shapes):
-            # we don't care about non pixel shapes
-            non_pixel_shapes = [
+            # we don't care about pixel or board shape
+            non_pixel_and_board_shapes = [
                 shape for shape in shapes[i] if shape.shape_type.name != "PIXEL"
             ]
-            assert len(non_pixel_shapes) == len(expected_shapes_per_example)
+
+            if len(non_pixel_and_board_shapes) > 1:
+                non_pixel_and_board_shapes = [
+                    shape
+                    for shape in non_pixel_and_board_shapes
+                    if "WHOLE_BOARD" not in shape.shape_groups
+                ]
+
+            assert len(non_pixel_and_board_shapes) == len(expected_shapes_per_example)
             for expected_shape in expected_shapes_per_example:
                 matching_shapes = [
-                    shape for shape in non_pixel_shapes if expected_shape == shape
+                    shape
+                    for shape in non_pixel_and_board_shapes
+                    if expected_shape == shape
                 ]
                 assert len(matching_shapes) == 1
 

@@ -6,6 +6,7 @@ import pytest
 
 from arc_2024.data_management.data_manager import DataManager
 from arc_2024.inductive_logic_programming.first_order_logic import Predicate
+from arc_2024.representations.colour import Colour
 from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
@@ -31,6 +32,8 @@ from arc_2024.solver import Solver
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
         ("1b2d62fb", [np.zeros((5, 3), dtype=np.int16)]),
         ("08ed6ac7", [np.zeros((9, 9), dtype=np.int16)]),
+        ("7c008303", [np.zeros((6, 6), dtype=np.int16)]),
+        ("007bbfb7", [np.zeros((9, 9), dtype=np.int16)]),
     ],
 )
 def test_solver(task_id, empty_test_outputs):
@@ -530,4 +533,264 @@ def test_append_background_knowledge_for_mask_gravity_to_shape_ex_2():
     assert (
         background_knowledge[mask_overlapping_gravity_to_shape_pred.name]
         == mask_overlapping_gravity_to_shape_set
+    )
+
+
+def test_append_background_knowledge_for_expandable_shapes_ex1():
+    input_shape = Shape(
+        (8, 8),
+        np.array([[2, 1], [4, 7]], dtype=np.int16),
+        ShapeType.MIXED_COLOUR,
+    )
+
+    input_shape_name = "shape"
+    ex_num = 1
+    mask_overlapping_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-expanded-to-grid",
+        0,
+        [],
+    )
+
+    mask_overlapping_and_colour_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-and-colour-expanded-to-grid",
+        0,
+        [],
+    )
+
+    background_knowledge = defaultdict(set)
+
+    possible_colours = [colour for colour in Colour]
+
+    for i in range(10):
+        for j in range(10):
+            Solver._append_background_knowledge_for_expandable_shapes(
+                background_knowledge,
+                i,
+                j,
+                input_shape,
+                np.zeros((6, 6)),
+                ex_num,
+                input_shape_name,
+                mask_overlapping_expanded_to_grid_pred,
+                mask_overlapping_and_colour_expanded_to_grid_pred,
+                possible_colours,
+            )
+
+    mask_overlapping_and_colour_expanded_to_grid_set = {
+        (ex_num, Colour(2), 0, 0, input_shape_name),
+        (ex_num, Colour(2), 0, 1, input_shape_name),
+        (ex_num, Colour(2), 0, 2, input_shape_name),
+        (ex_num, Colour(2), 1, 0, input_shape_name),
+        (ex_num, Colour(2), 1, 1, input_shape_name),
+        (ex_num, Colour(2), 1, 2, input_shape_name),
+        (ex_num, Colour(2), 2, 0, input_shape_name),
+        (ex_num, Colour(2), 2, 1, input_shape_name),
+        (ex_num, Colour(2), 2, 2, input_shape_name),
+        (ex_num, Colour(4), 3, 0, input_shape_name),
+        (ex_num, Colour(4), 3, 1, input_shape_name),
+        (ex_num, Colour(4), 3, 2, input_shape_name),
+        (ex_num, Colour(4), 4, 0, input_shape_name),
+        (ex_num, Colour(4), 4, 1, input_shape_name),
+        (ex_num, Colour(4), 4, 2, input_shape_name),
+        (ex_num, Colour(4), 5, 0, input_shape_name),
+        (ex_num, Colour(4), 5, 1, input_shape_name),
+        (ex_num, Colour(4), 5, 2, input_shape_name),
+        (ex_num, Colour(1), 0, 3, input_shape_name),
+        (ex_num, Colour(1), 0, 4, input_shape_name),
+        (ex_num, Colour(1), 0, 5, input_shape_name),
+        (ex_num, Colour(1), 1, 3, input_shape_name),
+        (ex_num, Colour(1), 1, 4, input_shape_name),
+        (ex_num, Colour(1), 1, 5, input_shape_name),
+        (ex_num, Colour(1), 2, 3, input_shape_name),
+        (ex_num, Colour(1), 2, 4, input_shape_name),
+        (ex_num, Colour(1), 2, 5, input_shape_name),
+        (ex_num, Colour(7), 3, 3, input_shape_name),
+        (ex_num, Colour(7), 3, 4, input_shape_name),
+        (ex_num, Colour(7), 3, 5, input_shape_name),
+        (ex_num, Colour(7), 4, 3, input_shape_name),
+        (ex_num, Colour(7), 4, 4, input_shape_name),
+        (ex_num, Colour(7), 4, 5, input_shape_name),
+        (ex_num, Colour(7), 5, 3, input_shape_name),
+        (ex_num, Colour(7), 5, 4, input_shape_name),
+        (ex_num, Colour(7), 5, 5, input_shape_name),
+    }
+
+    mask_overlapping_expanded_to_grid_set = {
+        (ex_num, i, j, input_shape_name) for i in range(6) for j in range(6)
+    }
+
+    assert (
+        background_knowledge[mask_overlapping_and_colour_expanded_to_grid_pred.name]
+        == mask_overlapping_and_colour_expanded_to_grid_set
+    )
+
+    assert (
+        background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
+        == mask_overlapping_expanded_to_grid_set
+    )
+
+
+def test_append_background_knowledge_for_expandable_shapes_ex2():
+    input_shape = Shape(
+        (2, 1),
+        np.array([[2, 1, 0], [4, 7, 7]], dtype=np.int16),
+        ShapeType.MIXED_COLOUR,
+    )
+
+    input_shape_name = "shape"
+    ex_num = 1
+    mask_overlapping_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-expanded-to-grid",
+        0,
+        [],
+    )
+
+    mask_overlapping_and_colour_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-and-colour-expanded-to-grid",
+        0,
+        [],
+    )
+
+    background_knowledge = defaultdict(set)
+
+    possible_colours = [colour for colour in Colour]
+
+    for i in range(10):
+        for j in range(10):
+            Solver._append_background_knowledge_for_expandable_shapes(
+                background_knowledge,
+                i,
+                j,
+                input_shape,
+                np.zeros((4, 6)),
+                ex_num,
+                input_shape_name,
+                mask_overlapping_expanded_to_grid_pred,
+                mask_overlapping_and_colour_expanded_to_grid_pred,
+                possible_colours,
+            )
+
+    mask_overlapping_and_colour_expanded_to_grid_set = {
+        (ex_num, Colour(2), 0, 0, input_shape_name),
+        (ex_num, Colour(2), 0, 1, input_shape_name),
+        (ex_num, Colour(2), 1, 0, input_shape_name),
+        (ex_num, Colour(2), 1, 1, input_shape_name),
+        (ex_num, Colour(4), 2, 0, input_shape_name),
+        (ex_num, Colour(4), 2, 1, input_shape_name),
+        (ex_num, Colour(4), 3, 0, input_shape_name),
+        (ex_num, Colour(4), 3, 1, input_shape_name),
+        (ex_num, Colour(1), 0, 2, input_shape_name),
+        (ex_num, Colour(1), 0, 3, input_shape_name),
+        (ex_num, Colour(1), 1, 2, input_shape_name),
+        (ex_num, Colour(1), 1, 3, input_shape_name),
+        (ex_num, Colour(7), 2, 2, input_shape_name),
+        (ex_num, Colour(7), 2, 3, input_shape_name),
+        (ex_num, Colour(7), 2, 4, input_shape_name),
+        (ex_num, Colour(7), 2, 5, input_shape_name),
+        (ex_num, Colour(7), 3, 2, input_shape_name),
+        (ex_num, Colour(7), 3, 3, input_shape_name),
+        (ex_num, Colour(7), 3, 4, input_shape_name),
+        (ex_num, Colour(7), 3, 5, input_shape_name),
+    }
+
+    mask_overlapping_expanded_to_grid_set = {
+        (ex[0], ex[2], ex[3], ex[4])
+        for ex in mask_overlapping_and_colour_expanded_to_grid_set
+    }
+
+    assert (
+        background_knowledge[mask_overlapping_and_colour_expanded_to_grid_pred.name]
+        == mask_overlapping_and_colour_expanded_to_grid_set
+    )
+
+    assert (
+        background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
+        == mask_overlapping_expanded_to_grid_set
+    )
+
+
+def test_append_background_knowledge_for_repeatable_shapes_ex1():
+    input_shape = Shape(
+        (8, 6),
+        np.array([[0, 7, 7], [7, 7, 7], [0, 6, 6]], dtype=np.int16),
+        ShapeType.MIXED_COLOUR,
+    )
+
+    input_shape_name = "shape"
+    ex_num = 1
+    mask_overlapping_repeated_grid_pred = Predicate(
+        "mask-overlapping-repeated-grid",
+        0,
+        [],
+    )
+
+    mask_overlapping_and_colour_repeated_grid_pred = Predicate(
+        "mask-overlapping-and-colour-repeated-grid",
+        0,
+        [],
+    )
+
+    background_knowledge = defaultdict(set)
+
+    possible_colours = [colour for colour in Colour]
+
+    for i in range(6):
+        for j in range(6):
+            Solver._append_background_knowledge_for_repeatable_shapes(
+                background_knowledge,
+                i,
+                j,
+                input_shape,
+                np.zeros((6, 6)),
+                ex_num,
+                input_shape_name,
+                mask_overlapping_repeated_grid_pred,
+                mask_overlapping_and_colour_repeated_grid_pred,
+                possible_colours,
+            )
+
+    mask_overlapping_and_colour_repeated_grid_set = {
+        (ex_num, Colour(7), 0, 1, input_shape_name),
+        (ex_num, Colour(7), 0, 2, input_shape_name),
+        (ex_num, Colour(7), 1, 0, input_shape_name),
+        (ex_num, Colour(7), 1, 1, input_shape_name),
+        (ex_num, Colour(7), 1, 2, input_shape_name),
+        (ex_num, Colour(6), 2, 1, input_shape_name),
+        (ex_num, Colour(6), 2, 2, input_shape_name),
+        (ex_num, Colour(7), 0, 4, input_shape_name),
+        (ex_num, Colour(7), 0, 5, input_shape_name),
+        (ex_num, Colour(7), 1, 3, input_shape_name),
+        (ex_num, Colour(7), 1, 4, input_shape_name),
+        (ex_num, Colour(7), 1, 5, input_shape_name),
+        (ex_num, Colour(6), 2, 4, input_shape_name),
+        (ex_num, Colour(6), 2, 5, input_shape_name),
+        (ex_num, Colour(7), 3, 4, input_shape_name),
+        (ex_num, Colour(7), 3, 5, input_shape_name),
+        (ex_num, Colour(7), 4, 3, input_shape_name),
+        (ex_num, Colour(7), 4, 4, input_shape_name),
+        (ex_num, Colour(7), 4, 5, input_shape_name),
+        (ex_num, Colour(6), 5, 4, input_shape_name),
+        (ex_num, Colour(6), 5, 5, input_shape_name),
+        (ex_num, Colour(7), 3, 1, input_shape_name),
+        (ex_num, Colour(7), 3, 2, input_shape_name),
+        (ex_num, Colour(7), 4, 0, input_shape_name),
+        (ex_num, Colour(7), 4, 1, input_shape_name),
+        (ex_num, Colour(7), 4, 2, input_shape_name),
+        (ex_num, Colour(6), 5, 1, input_shape_name),
+        (ex_num, Colour(6), 5, 2, input_shape_name),
+    }
+
+    mask_overlapping_repeated_grid_set = {
+        (ex[0], ex[2], ex[3], ex[4])
+        for ex in mask_overlapping_and_colour_repeated_grid_set
+    }
+
+    assert (
+        background_knowledge[mask_overlapping_and_colour_repeated_grid_pred.name]
+        == mask_overlapping_and_colour_repeated_grid_set
+    )
+
+    assert (
+        background_knowledge[mask_overlapping_repeated_grid_pred.name]
+        == mask_overlapping_repeated_grid_set
     )
