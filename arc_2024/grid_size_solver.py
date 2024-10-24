@@ -87,7 +87,7 @@ class GridSizeSolver:
         self.test_inputs_shapes = test_inputs_shapes
 
     def solve(
-        self, beam_width: int = 1, max_clause_length: int = 4
+        self, beam_width: int = 1, max_clause_length: int = 4, timeout_seconds: int = 60
     ) -> List[NDArray[np.int16]]:
         """
         This function solves the task.
@@ -107,6 +107,7 @@ class GridSizeSolver:
             predicate_list,
             background_knowledge,
             beam_width=beam_width,
+            timeout_seconds=timeout_seconds,
             type_extension_limit={
                 arg_types.example_number_arg: 1,
                 arg_types.width_arg: 1,
