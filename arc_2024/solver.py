@@ -2258,7 +2258,7 @@ class Solver:
                 inline_right_horizontally_pred,
                 inline_vertically_pred,
                 inline_horizontally_pred,
-                inline_diagonally_left_right_pred,
+                inline_diagonally_right_left_pred,
             }
         )
 
@@ -2275,7 +2275,7 @@ class Solver:
                 inline_right_horizontally_pred,
                 inline_vertically_pred,
                 inline_horizontally_pred,
-                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
