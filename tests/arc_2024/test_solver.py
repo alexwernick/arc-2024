@@ -26,7 +26,7 @@ from arc_2024.solver import Solver
         # ("0962bcdd", [np.zeros((12, 12), dtype=np.int16)]),
         # ("0ca9ddb6", [np.zeros((9, 9), dtype=np.int16)]),
         ("0d3d703e", [np.zeros((3, 3), dtype=np.int16)]),
-        # ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]),
+        # ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]), # beam width 10. need neg
         ("1caeab9d", [np.zeros((10, 10), dtype=np.int16)]),
         ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
@@ -69,7 +69,7 @@ def test_solver(task_id, empty_test_outputs):
             )
 
             results = solver.solve(
-                beam_width=2, max_clause_length=8, timeout_seconds=300
+                beam_width=10, max_clause_length=12, timeout_seconds=3000
             )
 
             for result, test_output in zip(results, test_outputs):

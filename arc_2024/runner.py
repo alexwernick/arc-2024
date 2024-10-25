@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -27,7 +29,9 @@ def run(
     verify_solutions: bool,
     submit_empty_solutions: bool = False,
     max_run_time_for_solutions: int = 36000,  # 10 hours
+    skip_training_data: bool = False,
 ):
+    start_time = time.time()
     data_manager = DataManager(input_data_path, output_data_path, temp_data_path)
 
     # Split the tasks into individual files (on kaggle server)
@@ -45,6 +49,12 @@ def run(
     grid_size_solutions: list[
         tuple[str, list[NDArray[np.int16]], Interpreter.InterpretType]
     ] = []
+
+    # If skip_training_data is True we check if we are in the
+    # training env and we return
+    # We know task 36d67576 is in the training data
+    if skip_training_data and "36d67576" in task_ids:
+        return
 
     # we give 10% of time to solve grid size and 90% to solve the task
     run_time_per_task = max_run_time_for_solutions / len(task_ids)
@@ -103,7 +113,11 @@ def run(
         grid_size_solutions, key=lambda x: get_max_grid_size(x[1])
     )
 
+    max_time_hit: bool = False
     for task_id, empty_test_outputs, interpret_type in grid_size_solutions:
+        if max_time_hit:
+            break
+
         inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data(task_id)
         interpreter = Interpreter(inputs, outputs, test_inputs)
         interpretations = interpreter.interpret_shapes()
@@ -118,6 +132,13 @@ def run(
                 test_inputs_shapes,
                 interpret_type,
             ) = interpretation
+
+            elapsed_time = time.time() - start_time
+            if elapsed_time > max_run_time_for_solutions:
+                print(f"Max time hit. Ending runner after {elapsed_time}s")
+                max_time_hit = True
+                break
+
             solver = Solver(
                 inputs,
                 outputs,
