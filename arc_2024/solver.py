@@ -51,17 +51,26 @@ class Solver:
         below_pred: Predicate
         left_of_pred: Predicate
         right_of_pred: Predicate
+
+        inline_diagonally_right_left_pred: Predicate
         inline_diagonally_above_right_pred: Predicate
+        inline_diagonally_below_left_pred: Predicate
+
+        inline_diagonally_left_right_pred: Predicate
         inline_diagonally_above_left_pred: Predicate
         inline_diagonally_below_right_pred: Predicate
-        inline_diagonally_below_left_pred: Predicate
+
+        inline_vertically_pred: Predicate
         inline_above_vertically_pred: Predicate
         inline_below_vertically_pred: Predicate
+
+        inline_horizontally_pred: Predicate
         inline_left_horizontally_pred: Predicate
         inline_right_horizontally_pred: Predicate
-        # inside_mask_pred: Predicate
-        inside_blank_space_pred: Predicate
+
+        # mask related predicates
         inside_mask_not_overlapping_pred: Predicate
+        inside_blank_space_pred: Predicate
         mask_overlapping_and_colour_pred: Predicate
         mask_overlapping_pred: Predicate
         mask_overlapping_and_colour_expanded_to_grid_pred: Predicate
@@ -71,6 +80,7 @@ class Solver:
         inside_mask_not_overlapping_moved_to_grid_pred: Predicate  # noqa: E501
         mask_overlapping_moved_to_grid_pred: Predicate
 
+        # distance predicates
         vertical_center_distance_more_than_pred: Predicate
         vertical_center_distance_less_than_pred: Predicate
         horizontal_center_distance_more_than_pred: Predicate
@@ -160,7 +170,7 @@ class Solver:
         self.test_inputs_shapes = test_inputs_shapes
 
     def solve(
-        self, beam_width: int = 1, max_clause_length: int = 4
+        self, beam_width: int = 1, max_clause_length: int = 4, timeout_seconds: int = 60
     ) -> list[NDArray[np.int16]]:
         """
         This function solves the task.
@@ -200,6 +210,7 @@ class Solver:
             background_knowledge,
             beam_width=beam_width,
             max_clause_length=max_clause_length,
+            timeout_seconds=timeout_seconds,
             type_extension_limit={
                 arg_types.example_number_arg: 1,
                 arg_types.i_arg: 1,
@@ -620,7 +631,20 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_diagonally_above_right_ij(output_i, output_j):
+        is_inline_diagonally_above_right = (
+            input_shape.is_inline_diagonally_above_right_ij(output_i, output_j)
+        )
+        is_inline_diagonally_above_left = (
+            input_shape.is_inline_diagonally_above_left_ij(output_i, output_j)
+        )
+        is_inline_diagonally_below_right = (
+            input_shape.is_inline_diagonally_below_right_ij(output_i, output_j)
+        )
+        is_inline_diagonally_below_left = (
+            input_shape.is_inline_diagonally_below_left_ij(output_i, output_j)
+        )
+
+        if is_inline_diagonally_above_right:
             background_knowledge[
                 predicates.inline_diagonally_above_right_pred.name
             ].add(
@@ -632,7 +656,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_diagonally_above_left_ij(output_i, output_j):
+        if is_inline_diagonally_above_left:
             background_knowledge[predicates.inline_diagonally_above_left_pred.name].add(
                 (
                     ex_number,
@@ -642,7 +666,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_diagonally_below_right_ij(output_i, output_j):
+        if is_inline_diagonally_below_right:
             background_knowledge[
                 predicates.inline_diagonally_below_right_pred.name
             ].add(
@@ -654,7 +678,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_diagonally_below_left_ij(output_i, output_j):
+        if is_inline_diagonally_below_left:
             background_knowledge[predicates.inline_diagonally_below_left_pred.name].add(
                 (
                     ex_number,
@@ -664,7 +688,35 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_above_vertically_ij(output_i, output_j):
+        if is_inline_diagonally_above_right or is_inline_diagonally_below_left:
+            background_knowledge[predicates.inline_diagonally_right_left_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        if is_inline_diagonally_above_left or is_inline_diagonally_below_right:
+            background_knowledge[predicates.inline_diagonally_left_right_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        is_inline_above_vertically = input_shape.is_inline_above_vertically_ij(
+            output_i, output_j
+        )
+
+        is_inline_below_vertically = input_shape.is_inline_below_vertically_ij(
+            output_i, output_j
+        )
+
+        if is_inline_above_vertically:
             background_knowledge[predicates.inline_above_vertically_pred.name].add(
                 (
                     ex_number,
@@ -674,7 +726,7 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_below_vertically_ij(output_i, output_j):
+        if is_inline_below_vertically:
             background_knowledge[predicates.inline_below_vertically_pred.name].add(
                 (
                     ex_number,
@@ -684,7 +736,24 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_left_horizontally_ij(output_i, output_j):
+        if is_inline_above_vertically or is_inline_below_vertically:
+            background_knowledge[predicates.inline_vertically_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        is_inline_left_horizontally = input_shape.is_inline_left_horizontally_ij(
+            output_i, output_j
+        )
+        is_inline_right_horizontally = input_shape.is_inline_right_horizontally_ij(
+            output_i, output_j
+        )
+
+        if is_inline_left_horizontally:
             background_knowledge[predicates.inline_left_horizontally_pred.name].add(
                 (
                     ex_number,
@@ -694,8 +763,18 @@ class Solver:
                 )
             )
 
-        if input_shape.is_inline_right_horizontally_ij(output_i, output_j):
+        if is_inline_right_horizontally:
             background_knowledge[predicates.inline_right_horizontally_pred.name].add(
+                (
+                    ex_number,
+                    output_i,
+                    output_j,
+                    input_shape_name,
+                )
+            )
+
+        if is_inline_left_horizontally or is_inline_right_horizontally:
+            background_knowledge[predicates.inline_horizontally_pred.name].add(
                 (
                     ex_number,
                     output_i,
@@ -1247,6 +1326,21 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
+        inline_diagonally_right_left_pred = Predicate(
+            "inline-diagonally-right-left",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_diagonally_left_right_pred = Predicate(
+            "inline-diagonally-left-right",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )  # noqa: E501
+        inline_vertically_pred = Predicate(
+            "inline-vertically",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )
         inline_above_vertically_pred = Predicate(
             "inline-above-vertically",
             4,
@@ -1257,6 +1351,11 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
+        inline_horizontally_pred = Predicate(
+            "inline-horizontally",
+            4,
+            [ex_num_arg, i_arg, j_arg, shape_arg],
+        )
         inline_left_horizontally_pred = Predicate(
             "inline-left-horizontally",
             4,
@@ -1649,8 +1748,12 @@ class Solver:
             inline_diagonally_above_left_pred=inline_diagonally_above_left_pred,
             inline_diagonally_below_right_pred=inline_diagonally_below_right_pred,
             inline_diagonally_below_left_pred=inline_diagonally_below_left_pred,
+            inline_diagonally_right_left_pred=inline_diagonally_right_left_pred,
+            inline_diagonally_left_right_pred=inline_diagonally_left_right_pred,
+            inline_vertically_pred=inline_vertically_pred,
             inline_above_vertically_pred=inline_above_vertically_pred,
             inline_below_vertically_pred=inline_below_vertically_pred,
+            inline_horizontally_pred=inline_horizontally_pred,
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
             mask_overlapping_pred=mask_overlapping_pred,
@@ -2014,8 +2117,12 @@ class Solver:
             predicates.inline_diagonally_below_right_pred
         )
         inline_diagonally_below_left_pred = predicates.inline_diagonally_below_left_pred
+        inline_diagonally_left_right_pred = predicates.inline_diagonally_left_right_pred
+        inline_diagonally_right_left_pred = predicates.inline_diagonally_right_left_pred
+        inline_vertically_pred = predicates.inline_vertically_pred
         inline_above_vertically_pred = predicates.inline_above_vertically_pred
         inline_below_vertically_pred = predicates.inline_below_vertically_pred
+        inline_horizontally_pred = predicates.inline_horizontally_pred
         inline_left_horizontally_pred = predicates.inline_left_horizontally_pred
         inline_right_horizontally_pred = predicates.inline_right_horizontally_pred
         mask_overlapping_pred = predicates.mask_overlapping_pred
@@ -2062,6 +2169,9 @@ class Solver:
                 inline_diagonally_below_right_pred,
                 inline_diagonally_below_left_pred,
                 inline_below_vertically_pred,
+                inline_horizontally_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
             }
         )
 
@@ -2071,6 +2181,9 @@ class Solver:
                 inline_diagonally_above_right_pred,
                 inline_diagonally_above_left_pred,
                 inline_above_vertically_pred,
+                inline_horizontally_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
             }
         )
 
@@ -2080,6 +2193,9 @@ class Solver:
                 inline_diagonally_above_right_pred,
                 inline_diagonally_below_right_pred,
                 inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
             }
         )
 
@@ -2089,6 +2205,9 @@ class Solver:
                 inline_diagonally_above_left_pred,
                 inline_diagonally_below_left_pred,
                 inline_left_horizontally_pred,
+                inline_vertically_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
             }
         )
 
@@ -2103,6 +2222,9 @@ class Solver:
                 inline_below_vertically_pred,
                 inline_left_horizontally_pred,
                 inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
@@ -2117,6 +2239,9 @@ class Solver:
                 inline_below_vertically_pred,
                 inline_left_horizontally_pred,
                 inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
             }
         )
 
@@ -2131,6 +2256,9 @@ class Solver:
                 inline_below_vertically_pred,
                 inline_left_horizontally_pred,
                 inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
@@ -2145,6 +2273,9 @@ class Solver:
                 inline_below_vertically_pred,
                 inline_left_horizontally_pred,
                 inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
             }
         )
 
@@ -2160,6 +2291,9 @@ class Solver:
                 inline_diagonally_above_left_pred,
                 inline_diagonally_below_right_pred,
                 inline_diagonally_below_left_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
@@ -2175,6 +2309,9 @@ class Solver:
                 inline_diagonally_above_left_pred,
                 inline_diagonally_below_right_pred,
                 inline_diagonally_below_left_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
@@ -2190,6 +2327,9 @@ class Solver:
                 inline_diagonally_above_left_pred,
                 inline_diagonally_below_right_pred,
                 inline_diagonally_below_left_pred,
+                inline_vertically_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
             }
         )
 
@@ -2205,6 +2345,69 @@ class Solver:
                 inline_diagonally_above_left_pred,
                 inline_diagonally_below_right_pred,
                 inline_diagonally_below_left_pred,
+                inline_vertically_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
+            }
+        )
+
+        inline_vertically_pred.add_incompatible_predicates(
+            {
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+                left_of_pred,
+                right_of_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
+            }
+        )
+
+        inline_horizontally_pred.add_incompatible_predicates(
+            {
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                above_pred,
+                below_pred,
+                inline_diagonally_above_right_pred,
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_diagonally_below_left_pred,
+                inline_vertically_pred,
+                inline_diagonally_right_left_pred,
+                inline_diagonally_left_right_pred,
+            }
+        )
+
+        inline_diagonally_right_left_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_left_right_pred,
+            }
+        )
+
+        inline_diagonally_left_right_pred.add_incompatible_predicates(
+            {
+                inline_diagonally_above_right_pred,
+                inline_diagonally_below_left_pred,
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+                inline_vertically_pred,
+                inline_horizontally_pred,
+                inline_diagonally_right_left_pred,
             }
         )
 
@@ -2338,11 +2541,35 @@ class Solver:
             }
         )
 
-        inside_blank_space_pred.add_more_specialised_predicates(
+        inside_mask_not_overlapping_pred.add_more_specialised_predicates(
+            {inside_blank_space_pred}
+        )
+
+        inline_horizontally_pred.add_more_specialised_predicates(
             {
-                inside_mask_not_overlapping_pred,
-                inside_blank_space_pred,
-                mask_overlapping_pred,
+                inline_left_horizontally_pred,
+                inline_right_horizontally_pred,
+            }
+        )
+
+        inline_vertically_pred.add_more_specialised_predicates(
+            {
+                inline_above_vertically_pred,
+                inline_below_vertically_pred,
+            }
+        )
+
+        inline_diagonally_right_left_pred.add_more_specialised_predicates(
+            {
+                inline_diagonally_above_right_pred,
+                inline_diagonally_below_left_pred,
+            }
+        )
+
+        inline_diagonally_left_right_pred.add_more_specialised_predicates(
+            {
+                inline_diagonally_above_left_pred,
+                inline_diagonally_below_right_pred,
             }
         )
 

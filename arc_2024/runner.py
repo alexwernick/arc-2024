@@ -1,5 +1,4 @@
-import signal
-from typing import Any, Callable, TypeVar
+import time
 
 import numpy as np
 from numpy.typing import NDArray
@@ -8,29 +7,6 @@ from arc_2024.data_management.data_manager import DataManager
 from arc_2024.grid_size_solver import GridSizeSolver
 from arc_2024.representations.interpreter import Interpreter
 from arc_2024.solver import Solver
-
-R = TypeVar("R")
-
-
-class TimeoutException(Exception):
-    pass
-
-
-def timeout_handler(signum, _):
-    raise TimeoutException("Function call timed out")
-
-
-def function_with_timeout(
-    timeout: int, func: Callable[..., R], *args: Any, **kwargs: Any
-) -> R:
-    # Set the signal handler and an alarm
-    signal.signal(signal.SIGALRM, timeout_handler)  # type: ignore
-    signal.alarm(timeout)  # type: ignore
-    try:
-        result = func(*args, **kwargs)
-        return result
-    finally:
-        signal.alarm(0)  # type: ignore
 
 
 def verify_solution(
@@ -52,9 +28,10 @@ def run(
     split_tasks: bool,
     verify_solutions: bool,
     submit_empty_solutions: bool = False,
-    run_with_timeout: bool = False,
     max_run_time_for_solutions: int = 36000,  # 10 hours
+    skip_training_data: bool = False,
 ):
+    start_time = time.time()
     data_manager = DataManager(input_data_path, output_data_path, temp_data_path)
 
     # Split the tasks into individual files (on kaggle server)
@@ -72,6 +49,12 @@ def run(
     grid_size_solutions: list[
         tuple[str, list[NDArray[np.int16]], Interpreter.InterpretType]
     ] = []
+
+    # If skip_training_data is True we check if we are in the
+    # training env and we return
+    # We know task 36d67576 is in the training data
+    if skip_training_data and "36d67576" in task_ids:
+        return
 
     # we give 10% of time to solve grid size and 90% to solve the task
     run_time_per_task = max_run_time_for_solutions / len(task_ids)
@@ -99,27 +82,17 @@ def run(
                 test_inputs_shapes,
             )
             try:
-                if run_with_timeout:
-                    grid_size_solutions.append(
-                        (
-                            task_id,
-                            function_with_timeout(
-                                grid_size_timeout_seconds,
-                                grid_size_solver.solve,
-                                beam_width=2,
-                                max_clause_length=4,
-                            ),
-                            interpret_type,
-                        )
+                grid_size_solutions.append(
+                    (
+                        task_id,
+                        grid_size_solver.solve(
+                            beam_width=2,
+                            max_clause_length=4,
+                            timeout_seconds=grid_size_timeout_seconds,
+                        ),
+                        interpret_type,
                     )
-                else:
-                    grid_size_solutions.append(
-                        (
-                            task_id,
-                            grid_size_solver.solve(beam_width=2, max_clause_length=4),
-                            interpret_type,
-                        )
-                    )
+                )
                 print(
                     f"Task {task_id} grid size was solved using interpret_type {interpret_type.name}"  # noqa: E501
                 )
@@ -140,7 +113,11 @@ def run(
         grid_size_solutions, key=lambda x: get_max_grid_size(x[1])
     )
 
+    max_time_hit: bool = False
     for task_id, empty_test_outputs, interpret_type in grid_size_solutions:
+        if max_time_hit:
+            break
+
         inputs, outputs, test_inputs, test_outputs = data_manager.get_task_data(task_id)
         interpreter = Interpreter(inputs, outputs, test_inputs)
         interpretations = interpreter.interpret_shapes()
@@ -155,6 +132,13 @@ def run(
                 test_inputs_shapes,
                 interpret_type,
             ) = interpretation
+
+            elapsed_time = time.time() - start_time
+            if elapsed_time > max_run_time_for_solutions:
+                print(f"Max time hit. Ending runner after {elapsed_time}s")
+                max_time_hit = True
+                break
+
             solver = Solver(
                 inputs,
                 outputs,
@@ -165,15 +149,11 @@ def run(
                 test_inputs_shapes,
             )
             try:
-                if run_with_timeout:
-                    results = function_with_timeout(
-                        task_timeout_seconds,
-                        solver.solve,
-                        beam_width=2,
-                        max_clause_length=6,
-                    )
-                else:
-                    results = solver.solve(beam_width=2, max_clause_length=6)
+                results = solver.solve(
+                    beam_width=2,
+                    max_clause_length=6,
+                    timeout_seconds=task_timeout_seconds,
+                )
 
                 print(
                     f"Task {task_id} was solved using interpret_type {interpret_type.name}"  # noqa: E501

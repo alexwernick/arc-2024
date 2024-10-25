@@ -1,6 +1,7 @@
 import copy
 import itertools
 import math
+import time
 from functools import lru_cache
 from typing import Any, NamedTuple
 
@@ -24,6 +25,7 @@ class FOIL:
     allow_recursion: bool
     beam_width: int
     _max_clause_length: int
+    _timeout_seconds: int
     rules: list[Clause]
     _type_extension_limit: dict[ArgType, int]
 
@@ -48,6 +50,7 @@ class FOIL:
         allow_recursion: bool = False,
         beam_width: int = 1,
         max_clause_length: int = 7,
+        timeout_seconds: int = 60,
         type_extension_limit={},
     ):
         """
@@ -64,6 +67,7 @@ class FOIL:
         self.allow_recursion = allow_recursion
         self.beam_width = beam_width
         self._max_clause_length = max_clause_length
+        self._timeout_seconds = timeout_seconds
         self._type_extension_limit = type_extension_limit
         self.rules = []
 
@@ -72,6 +76,7 @@ class FOIL:
         Learn rules to cover positive examples.
         :param examples: A list of tuples (is_positive, example)
         """
+        start_time = time.time()
         # Separate positive and negative examples
         pos_examples: list[dict[str, Any]] = [ex for is_pos, ex in examples if is_pos]
         neg_examples: list[dict[str, Any]] = [
@@ -83,7 +88,9 @@ class FOIL:
 
         while uncovered_pos:
             # Learn a new clause to cover positive examples
-            clause, best_pos_covered = self._new_clause(uncovered_pos, neg_examples)
+            clause, best_pos_covered = self._new_clause(
+                uncovered_pos, neg_examples, start_time
+            )
             # Remove positive examples covered by this clause
             uncovered_pos = [d for d in uncovered_pos if d not in best_pos_covered]
             self.rules.append(clause)
@@ -104,6 +111,7 @@ class FOIL:
         self,
         uncovered_pos_examples: list[dict[str, Any]],
         neg_examples: list[dict[str, Any]],
+        start_time: float,
     ) -> tuple[Clause, list[dict[str, Any]]]:
         """
         Learn a new clause to cover positive examples.
@@ -142,6 +150,7 @@ class FOIL:
                     uncovered_pos_examples,
                     beam_item.old_positive_examples,
                     beam_item.old_negative_examples,
+                    start_time,
                 )
 
                 for best_literal in best_literals:
@@ -194,6 +203,7 @@ class FOIL:
         uncovered_pos_examples: list[dict[str, Any]],
         old_positive_examples: list[dict[str, Any]],
         old_negative_examples: list[dict[str, Any]],
+        start_time: float,
     ) -> list[BestLiteral]:
         candidate_literals: list[Literal] = self._new_literals(clause)
         best_gain: float = 0.0
@@ -201,6 +211,9 @@ class FOIL:
 
         # Evaluate each candidate literal
         while candidate_literals:
+            if time.time() - start_time > self._timeout_seconds:
+                raise Exception(f"Timeout of {self._timeout_seconds} hit")
+
             literal = candidate_literals.pop(0)
             if literal in clause.body:
                 continue  # Avoid cycles
