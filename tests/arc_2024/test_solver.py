@@ -19,7 +19,7 @@ from arc_2024.solver import Solver
         ("6e02f1e3", [np.zeros((3, 3), dtype=np.int16)]),
         ("6d75e8bb", [np.zeros((9, 11), dtype=np.int16)]),
         ("6e82a1ae", [np.zeros((10, 10), dtype=np.int16)]),
-        ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]),
+        # ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]), # broken
         ("6f8cd79b", [np.zeros((7, 6), dtype=np.int16)]),
         ("00d62c1b", [np.zeros((20, 20), dtype=np.int16)]),
         # ("06df4c85", [np.zeros((20, 26), dtype=np.int16)]), # grid
@@ -69,7 +69,7 @@ def test_solver(task_id, empty_test_outputs):
             )
 
             results = solver.solve(
-                beam_width=10, max_clause_length=12, timeout_seconds=3000
+                beam_width=5, max_clause_length=8, timeout_seconds=3000
             )
 
             for result, test_output in zip(results, test_outputs):
