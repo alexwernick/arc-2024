@@ -57,7 +57,9 @@ def run(
         return
 
     # we give 10% of time to solve grid size and 90% to solve the task
-    run_time_per_task = max_run_time_for_solutions / len(task_ids)
+    # we double time so we will most likely timout but at least we can have a good
+    # go at some of the puzzles
+    run_time_per_task = max_run_time_for_solutions / len(task_ids) * 2
     grid_size_timeout_seconds = int(run_time_per_task * 0.1)
     task_timeout_seconds = int(run_time_per_task * 0.9)
 

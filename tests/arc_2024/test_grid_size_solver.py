@@ -31,6 +31,8 @@ def test_grid_size_solver(task_id):
 
     interpreter = Interpreter(inputs, outputs, test_inputs)
     interpretations = interpreter.interpret_shapes()
+    exceptions = []
+
     for interpretation in interpretations:
         try:
             (
@@ -59,6 +61,9 @@ def test_grid_size_solver(task_id):
             return
 
         except Exception as e:
+            exceptions.append(e)
             print(f"Error: {e}")
 
+    if len(exceptions) > 0:
+        raise exceptions[0]
     assert False, f"No solution found for task_id: {task_id}"

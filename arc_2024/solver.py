@@ -74,13 +74,16 @@ class Solver:
         inside_mask_not_overlapping_pred: Predicate
         inside_blank_space_pred: Predicate
         mask_overlapping_and_colour_pred: Predicate
-        mask_overlapping_pred: Predicate
+        # mask_overlapping_pred: Predicate
         mask_overlapping_and_colour_expanded_to_grid_pred: Predicate
-        mask_overlapping_expanded_to_grid_pred: Predicate
+        # mask_overlapping_expanded_to_grid_pred: Predicate
+        mask_overlapping_and_colour_shrunk_to_grid_pred: Predicate
+        # mask_overlapping_shrunk_to_grid_pred: Predicate
         mask_overlapping_and_colour_repeated_grid_pred: Predicate
-        mask_overlapping_repeated_grid_pred: Predicate
+        # mask_overlapping_repeated_grid_pred: Predicate
         inside_mask_not_overlapping_moved_to_grid_pred: Predicate  # noqa: E501
-        mask_overlapping_moved_to_grid_pred: Predicate
+        mask_overlapping_and_colour_moved_to_grid_pred: Predicate
+        # mask_overlapping_moved_to_grid_pred: Predicate
 
         # distance predicates
         vertical_center_distance_more_than_pred: Predicate
@@ -219,7 +222,7 @@ class Solver:
                 arg_types.j_arg: 1,
                 arg_types.number_value_arg: 2,
                 arg_types.shape_arg: 3,
-                arg_types.colour_type_arg: 2,
+                arg_types.colour_type_arg: 3,
             },
         )
         foil.fit(examples)
@@ -533,20 +536,21 @@ class Solver:
                                 (ex_test_number, input_shape_name)
                             )
 
-                for i in range(output_grid.shape[0]):
-                    for j in range(output_grid.shape[1]):
-                        self._append_background_knowledge_for_shape(
-                            background_knowledge,
-                            i,
-                            j,
-                            input_shape,
-                            output_grid,
-                            input_grid,
-                            ex_test_number,
-                            input_shape_name,
-                            predicates,
-                            possible_colours,
-                        )
+                if True or self._input_and_output_grids_same_size():
+                    for i in range(output_grid.shape[0]):
+                        for j in range(output_grid.shape[1]):
+                            self._append_background_knowledge_for_shape(
+                                background_knowledge,
+                                i,
+                                j,
+                                input_shape,
+                                output_grid,
+                                input_grid,
+                                ex_test_number,
+                                input_shape_name,
+                                predicates,
+                                possible_colours,
+                            )
 
             for input_shape_index_1, input_shape_1 in enumerate(input_shapes):
                 # for now lets ignore pixels
@@ -805,15 +809,15 @@ class Solver:
                 )
             )
 
-        if input_shape.is_mask_overlapping_ij(output_i, output_j):
-            background_knowledge[predicates.mask_overlapping_pred.name].add(
-                (
-                    ex_number,
-                    output_i,
-                    output_j,
-                    input_shape_name,
-                )
-            )
+        # if input_shape.is_mask_overlapping_ij(output_i, output_j):
+        #     background_knowledge[predicates.mask_overlapping_pred.name].add(
+        #         (
+        #             ex_number,
+        #             output_i,
+        #             output_j,
+        #             input_shape_name,
+        #         )
+        #     )
 
         self._append_background_knowledge_for_expandable_shapes(
             background_knowledge,
@@ -823,7 +827,7 @@ class Solver:
             output_grid,
             ex_number,
             input_shape_name,
-            predicates.mask_overlapping_expanded_to_grid_pred,
+            # predicates.mask_overlapping_expanded_to_grid_pred,
             predicates.mask_overlapping_and_colour_expanded_to_grid_pred,
             possible_colours,
         )
@@ -836,8 +840,21 @@ class Solver:
             output_grid,
             ex_number,
             input_shape_name,
-            predicates.mask_overlapping_repeated_grid_pred,
+            # predicates.mask_overlapping_repeated_grid_pred,
             predicates.mask_overlapping_and_colour_repeated_grid_pred,
+            possible_colours,
+        )
+
+        self._append_background_knowledge_for_shrinkable_shapes(
+            background_knowledge,
+            output_i,
+            output_j,
+            input_shape,
+            output_grid,
+            ex_number,
+            input_shape_name,
+            # predicates.mask_overlapping_shrunk_to_grid_pred,
+            predicates.mask_overlapping_and_colour_shrunk_to_grid_pred,
             possible_colours,
         )
 
@@ -864,19 +881,37 @@ class Solver:
             output_grid.shape == input_shape.mask.shape
             and input_grid.shape != output_grid.shape
         ):
-            if input_shape.is_mask_overlapping_ij(
-                output_i + input_shape.position[0], output_j + input_shape.position[1]
-            ):
-                background_knowledge[
-                    predicates.mask_overlapping_moved_to_grid_pred.name
-                ].add(
-                    (
-                        ex_number,
-                        output_i,
-                        output_j,
-                        input_shape_name,
+            # if input_shape.is_mask_overlapping_ij(
+            #     output_i + input_shape.position[0], output_j + input_shape.position[1]
+            # ):
+            #     background_knowledge[
+            #         predicates.mask_overlapping_moved_to_grid_pred.name
+            #     ].add(
+            #         (
+            #             ex_number,
+            #             output_i,
+            #             output_j,
+            #             input_shape_name,
+            #         )
+            #     )
+
+            for colour in possible_colours:
+                if input_shape.is_mask_overlapping_and_colour_ij(
+                    output_i + input_shape.position[0],
+                    output_j + input_shape.position[1],
+                    colour,
+                ):
+                    background_knowledge[
+                        predicates.mask_overlapping_and_colour_moved_to_grid_pred.name
+                    ].add(
+                        (
+                            ex_number,
+                            colour,
+                            output_i,
+                            output_j,
+                            input_shape_name,
+                        )
                     )
-                )
 
             if input_shape.is_ij_inside_mask_not_overlapping(
                 output_i + input_shape.position[0], output_j + input_shape.position[1]
@@ -1370,40 +1405,55 @@ class Solver:
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
         )  # noqa: E501
-        mask_overlapping_pred = Predicate(
-            "mask-overlapping",
-            4,
-            [ex_num_arg, i_arg, j_arg, shape_arg],
-        )
+        # mask_overlapping_pred = Predicate(
+        #     "mask-overlapping",
+        #     4,
+        #     [ex_num_arg, i_arg, j_arg, shape_arg],
+        # )
         mask_overlapping_and_colour_pred = Predicate(
             "mask-overlapping-and-colour",
             5,
             [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
-        mask_overlapping_expanded_to_grid_pred = Predicate(
-            "mask-overlapping-expanded-to-grid",
-            4,
-            [ex_num_arg, i_arg, j_arg, shape_arg],
-        )
+        # mask_overlapping_expanded_to_grid_pred = Predicate(
+        #     "mask-overlapping-expanded-to-grid",
+        #     4,
+        #     [ex_num_arg, i_arg, j_arg, shape_arg],
+        # )
         mask_overlapping_and_colour_expanded_to_grid_pred = Predicate(
             "mask-overlapping-and-colour-expanded-to-grid",
             5,
             [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
-        mask_overlapping_repeated_grid_pred = Predicate(
-            "mask-overlapping-repeated-grid",
-            4,
-            [ex_num_arg, i_arg, j_arg, shape_arg],
+        # mask_overlapping_shrunk_to_grid_pred = Predicate(
+        #     "mask-overlapping-shrunk-to-grid",
+        #     4,
+        #     [ex_num_arg, i_arg, j_arg, shape_arg],
+        # )
+        mask_overlapping_and_colour_shrunk_to_grid_pred = Predicate(
+            "mask-overlapping-and-colour-shrunk-to-grid",
+            5,
+            [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
+        # mask_overlapping_repeated_grid_pred = Predicate(
+        #     "mask-overlapping-repeated-grid",
+        #     4,
+        #     [ex_num_arg, i_arg, j_arg, shape_arg],
+        # )
         mask_overlapping_and_colour_repeated_grid_pred = Predicate(
             "mask-overlapping-and-colour-repeated-grid",
             5,
             [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
-        mask_overlapping_moved_to_grid_pred = Predicate(
-            "mask-overlapping-moved-to-grid",
-            4,
-            [ex_num_arg, i_arg, j_arg, shape_arg],
+        # mask_overlapping_moved_to_grid_pred = Predicate(
+        #     "mask-overlapping-moved-to-grid",
+        #     4,
+        #     [ex_num_arg, i_arg, j_arg, shape_arg],
+        # )
+        mask_overlapping_and_colour_moved_to_grid_pred = Predicate(
+            "mask-overlapping-and-colour-moved-to-grid",
+            5,
+            [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
         inside_mask_not_overlapping_moved_to_grid_pred = Predicate(
             "inside-mask-not-overlapping-moved-to-grid",
@@ -1761,13 +1811,16 @@ class Solver:
             inline_horizontally_pred=inline_horizontally_pred,
             inline_left_horizontally_pred=inline_left_horizontally_pred,
             inline_right_horizontally_pred=inline_right_horizontally_pred,
-            mask_overlapping_pred=mask_overlapping_pred,
+            # mask_overlapping_pred=mask_overlapping_pred,
             mask_overlapping_and_colour_pred=mask_overlapping_and_colour_pred,
-            mask_overlapping_expanded_to_grid_pred=mask_overlapping_expanded_to_grid_pred,  # noqa: E501
+            # mask_overlapping_expanded_to_grid_pred=mask_overlapping_expanded_to_grid_pred,  # noqa: E501
             mask_overlapping_and_colour_expanded_to_grid_pred=mask_overlapping_and_colour_expanded_to_grid_pred,  # noqa: E501
-            mask_overlapping_repeated_grid_pred=mask_overlapping_repeated_grid_pred,
+            # mask_overlapping_shrunk_to_grid_pred=mask_overlapping_shrunk_to_grid_pred,  # noqa: E501
+            mask_overlapping_and_colour_shrunk_to_grid_pred=mask_overlapping_and_colour_shrunk_to_grid_pred,  # noqa: E501
+            # mask_overlapping_repeated_grid_pred=mask_overlapping_repeated_grid_pred,
             mask_overlapping_and_colour_repeated_grid_pred=mask_overlapping_and_colour_repeated_grid_pred,  # noqa: E501
-            mask_overlapping_moved_to_grid_pred=mask_overlapping_moved_to_grid_pred,
+            # mask_overlapping_moved_to_grid_pred=mask_overlapping_moved_to_grid_pred,
+            mask_overlapping_and_colour_moved_to_grid_pred=mask_overlapping_and_colour_moved_to_grid_pred,  # noqa: E501
             inside_mask_not_overlapping_moved_to_grid_pred=inside_mask_not_overlapping_moved_to_grid_pred,  # noqa: E501
             mask_overlapping_top_inline_top_pred=mask_overlapping_top_inline_top_pred,
             mask_overlapping_bot_inline_bot_pred=mask_overlapping_bot_inline_bot_pred,
@@ -2134,7 +2187,7 @@ class Solver:
         inline_horizontally_pred = predicates.inline_horizontally_pred
         inline_left_horizontally_pred = predicates.inline_left_horizontally_pred
         inline_right_horizontally_pred = predicates.inline_right_horizontally_pred
-        mask_overlapping_pred = predicates.mask_overlapping_pred
+        # mask_overlapping_pred = predicates.mask_overlapping_pred
         mask_overlapping_bot_top_touching_pred = (
             predicates.mask_overlapping_bot_top_touching_pred
         )
@@ -2159,18 +2212,27 @@ class Solver:
         shape_vertical_line_pred = predicates.shape_vertical_line_pred
         shape_horizontal_line_pred = predicates.shape_horizontal_line_pred
 
-        mask_overlapping_and_colour_expanded_to_grid_pred = (
-            predicates.mask_overlapping_and_colour_expanded_to_grid_pred
-        )  # noqa: E501
-        mask_overlapping_expanded_to_grid_pred = (
-            predicates.mask_overlapping_expanded_to_grid_pred
-        )  # noqa: E501
-        mask_overlapping_repeated_grid_pred = (
-            predicates.mask_overlapping_repeated_grid_pred
-        )  # noqa: E501
-        mask_overlapping_and_colour_repeated_grid_pred = (
-            predicates.mask_overlapping_and_colour_repeated_grid_pred
-        )  # noqa: E501
+        # mask_overlapping_and_colour_expanded_to_grid_pred = (
+        #     predicates.mask_overlapping_and_colour_expanded_to_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_expanded_to_grid_pred = (
+        #     predicates.mask_overlapping_expanded_to_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_and_colour_shrunk_to_grid_pred = (
+        #     predicates.mask_overlapping_and_colour_shrunk_to_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_shrunk_to_grid_pred = (
+        #     predicates.mask_overlapping_shrunk_to_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_repeated_grid_pred = (
+        #     predicates.mask_overlapping_repeated_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_and_colour_repeated_grid_pred = (
+        #     predicates.mask_overlapping_and_colour_repeated_grid_pred
+        # )  # noqa: E501
+        # mask_overlapping_and_colour_moved_to_grid_pred = (
+        #     predicates.mask_overlapping_and_colour_moved_to_grid_pred
+        # )  # noqa: E501
 
         above_pred.add_incompatible_predicates(
             {
@@ -2465,34 +2527,67 @@ class Solver:
             }
         )
 
-        mask_overlapping_pred.add_incompatible_predicates(
-            {
-                inside_blank_space_pred,
-                mask_overlapping_repeated_grid_pred,
-                mask_overlapping_expanded_to_grid_pred,
-            }
-        )
+        # mask_overlapping_pred.add_incompatible_predicates(
+        #     {
+        #         inside_blank_space_pred,
+        #         mask_overlapping_repeated_grid_pred,
+        #         mask_overlapping_expanded_to_grid_pred,
+        #         mask_overlapping_shrunk_to_grid_pred
+        #     }
+        # )
 
-        mask_overlapping_and_colour_expanded_to_grid_pred.add_incompatible_predicate(
-            mask_overlapping_and_colour_repeated_grid_pred
-        )
+        # mask_overlapping_and_colour_expanded_to_grid_pred.add_incompatible_predicates(
+        #     {
+        #         mask_overlapping_and_colour_repeated_grid_pred,
+        #         mask_overlapping_and_colour_shrunk_to_grid_pred,
+        #         mask_overlapping_and_colour_moved_to_grid_pred
+        #     }
+        # )
 
-        mask_overlapping_and_colour_repeated_grid_pred.add_incompatible_predicate(
-            mask_overlapping_and_colour_expanded_to_grid_pred
-        )
+        # mask_overlapping_and_colour_repeated_grid_pred.add_incompatible_predicates(
+        #     {
+        #         mask_overlapping_and_colour_expanded_to_grid_pred,
+        #         mask_overlapping_and_colour_shrunk_to_grid_pred,
+        #         mask_overlapping_and_colour_moved_to_grid_pred
+        #     }
+        # )
 
-        mask_overlapping_expanded_to_grid_pred.add_incompatible_predicates(
-            {mask_overlapping_pred, mask_overlapping_repeated_grid_pred}
-        )
+        # mask_overlapping_and_colour_shrunk_to_grid_pred.add_incompatible_predicates(
+        #     {
+        #         mask_overlapping_and_colour_expanded_to_grid_pred,
+        #         mask_overlapping_and_colour_repeated_grid_pred,
+        #         mask_overlapping_and_colour_moved_to_grid_pred
+        #     }
+        # )
 
-        mask_overlapping_repeated_grid_pred.add_incompatible_predicates(
-            {mask_overlapping_pred, mask_overlapping_expanded_to_grid_pred}
-        )
+        # mask_overlapping_and_colour_moved_to_grid_pred.add_incompatible_predicates(
+        #     {
+        #         mask_overlapping_and_colour_expanded_to_grid_pred,
+        #         mask_overlapping_and_colour_shrunk_to_grid_pred,
+        #         mask_overlapping_and_colour_moved_to_grid_pred
+        #     }
+        # )
 
-        inside_blank_space_pred.add_incompatible_predicate(mask_overlapping_pred)
-        inside_mask_not_overlapping_pred.add_incompatible_predicate(
-            mask_overlapping_pred
-        )
+        # mask_overlapping_expanded_to_grid_pred.add_incompatible_predicates(
+        #     {mask_overlapping_pred, mask_overlapping_repeated_grid_pred,
+        # mask_overlapping_shrunk_to_grid_pred}
+        # )
+
+        # mask_overlapping_shrunk_to_grid_pred.add_incompatible_predicates(
+        #     {mask_overlapping_pred,
+        #      mask_overlapping_repeated_grid_pred,
+        # mask_overlapping_expanded_to_grid_pred}
+        # )
+
+        # mask_overlapping_repeated_grid_pred.add_incompatible_predicates(
+        #     {mask_overlapping_pred, mask_overlapping_expanded_to_grid_pred,
+        # mask_overlapping_shrunk_to_grid_pred}
+        # )
+
+        # inside_blank_space_pred.add_incompatible_predicate(mask_overlapping_pred)
+        # inside_mask_not_overlapping_pred.add_incompatible_predicate(
+        #     mask_overlapping_pred
+        # )
         shape_vertical_line_pred.add_incompatible_predicate(shape_horizontal_line_pred)
         shape_horizontal_line_pred.add_incompatible_predicate(shape_vertical_line_pred)
 
@@ -2770,7 +2865,7 @@ class Solver:
         output_grid: NDArray[np.int16],
         ex_number: int,
         input_shape_name: str,
-        mask_overlapping_expanded_to_grid_pred: Predicate,
+        # mask_overlapping_expanded_to_grid_pred: Predicate,
         mask_overlapping_and_colour_expanded_to_grid_pred: Predicate,
         possible_colours: list[Colour],
     ):
@@ -2784,17 +2879,17 @@ class Solver:
         shrunk_i = output_i // expand_factor
         shrunk_j = output_j // expand_factor
 
-        if input_shape.is_mask_overlapping_ij(
-            shrunk_i + input_shape.position[0], shrunk_j + input_shape.position[1]
-        ):
-            background_knowledge[mask_overlapping_expanded_to_grid_pred.name].add(
-                (
-                    ex_number,
-                    output_i,
-                    output_j,
-                    input_shape_name,
-                )
-            )
+        # if input_shape.is_mask_overlapping_ij(
+        #     shrunk_i + input_shape.position[0], shrunk_j + input_shape.position[1]
+        # ):
+        #     background_knowledge[mask_overlapping_expanded_to_grid_pred.name].add(
+        #         (
+        #             ex_number,
+        #             output_i,
+        #             output_j,
+        #             input_shape_name,
+        #         )
+        #     )
 
         for colour in possible_colours:
             if input_shape.is_mask_overlapping_and_colour_ij(
@@ -2804,6 +2899,89 @@ class Solver:
             ):
                 background_knowledge[
                     mask_overlapping_and_colour_expanded_to_grid_pred.name
+                ].add(
+                    (
+                        ex_number,
+                        colour,
+                        output_i,
+                        output_j,
+                        input_shape_name,
+                    )
+                )
+
+    @staticmethod
+    def _is_shape_shrinkable_to_grid(
+        input_shape: Shape, output_grid: NDArray[np.int16]
+    ) -> tuple[bool, int]:
+        """
+        returns if the shape is shrinkable to the grid and the shrinkable divider
+        """
+        if input_shape.width == 1 and input_shape.height == 1:
+            return False, 0
+
+        grid_height = output_grid.shape[0]
+        grid_width = output_grid.shape[1]
+
+        if input_shape.height % grid_height != 0:
+            return False, 0
+
+        if input_shape.width % grid_width != 0:
+            return False, 0
+
+        height_divider = input_shape.height // grid_height
+        width_divider = input_shape.width // grid_width
+
+        if height_divider != width_divider:
+            return False, 0
+
+        if height_divider == 1:
+            return False, 0
+
+        return True, height_divider
+
+    @staticmethod
+    def _append_background_knowledge_for_shrinkable_shapes(
+        background_knowledge: BackgroundKnowledgeType,
+        output_i: int,
+        output_j: int,
+        input_shape: Shape,
+        output_grid: NDArray[np.int16],
+        ex_number: int,
+        input_shape_name: str,
+        # mask_overlapping_shrunk_to_grid_pred: Predicate,
+        mask_overlapping_and_colour_shrunk_to_grid_pred: Predicate,
+        possible_colours: list[Colour],
+    ):
+        is_ahrinkable, shrink_factor = Solver._is_shape_shrinkable_to_grid(
+            input_shape, output_grid
+        )  # noqa: E501
+
+        if not is_ahrinkable:
+            return
+
+        expanded_i = output_i * shrink_factor
+        expanded_j = output_j * shrink_factor
+
+        # if input_shape.is_mask_overlapping_ij(
+        #     expanded_i + input_shape.position[0], expanded_j + input_shape.position[1]
+        # ):
+        #     background_knowledge[mask_overlapping_shrunk_to_grid_pred.name].add(
+        #         (
+        #             ex_number,
+        #             output_i,
+        #             output_j,
+        #             input_shape_name,
+        #         )
+        #     )
+
+        for colour in possible_colours:
+            if input_shape.is_mask_overlapping_and_colour_ij(
+                expanded_i + input_shape.position[0],
+                expanded_j + input_shape.position[1],
+                colour,
+            ):
+                background_knowledge[
+                    mask_overlapping_and_colour_shrunk_to_grid_pred.name
                 ].add(
                     (
                         ex_number,
@@ -2850,7 +3028,7 @@ class Solver:
         output_grid: NDArray[np.int16],
         ex_number: int,
         input_shape_name: str,
-        mask_overlapping_repeated_grid_pred: Predicate,
+        # mask_overlapping_repeated_grid_pred: Predicate,
         mask_overlapping_and_colour_repeated_grid_pred: Predicate,
         possible_colours: list[Colour],
     ):
@@ -2864,17 +3042,17 @@ class Solver:
         shrunk_i = output_i % input_shape.width
         shrunk_j = output_j % input_shape.height
 
-        if input_shape.is_mask_overlapping_ij(
-            shrunk_i + input_shape.position[0], shrunk_j + input_shape.position[1]
-        ):
-            background_knowledge[mask_overlapping_repeated_grid_pred.name].add(
-                (
-                    ex_number,
-                    output_i,
-                    output_j,
-                    input_shape_name,
-                )
-            )
+        # if input_shape.is_mask_overlapping_ij(
+        #     shrunk_i + input_shape.position[0], shrunk_j + input_shape.position[1]
+        # ):
+        #     background_knowledge[mask_overlapping_repeated_grid_pred.name].add(
+        #         (
+        #             ex_number,
+        #             output_i,
+        #             output_j,
+        #             input_shape_name,
+        #         )
+        #     )
 
         for colour in possible_colours:
             if input_shape.is_mask_overlapping_and_colour_ij(
@@ -2909,3 +3087,12 @@ class Solver:
             max_shape_count = max(max_shape_count, len(non_pixel_shapes))
 
         return max_shape_count
+
+    def _input_and_output_grids_same_size(self):
+        for input_grid, output_grid in zip(self.inputs, self.outputs):
+            if input_grid.shape != output_grid.shape:
+                return False
+        for input_grid, output_grid in zip(self.test_inputs, self.empty_test_outputs):
+            if input_grid.shape != output_grid.shape:
+                return False
+        return True

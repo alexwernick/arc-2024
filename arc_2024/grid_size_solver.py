@@ -12,6 +12,7 @@ from arc_2024.inductive_logic_programming.first_order_logic import (
     Variable,
 )
 from arc_2024.inductive_logic_programming.FOIL import FOIL
+from arc_2024.representations.interpreter import Interpreter
 from arc_2024.representations.shape import Shape
 from arc_2024.representations.shape_type import ShapeType
 
@@ -82,9 +83,20 @@ class GridSizeSolver:
         self.inputs = inputs
         self.outputs = outputs
         self.test_inputs = test_inputs
-        self.inputs_shapes = inputs_shapes
-        self.outputs_shapes = outputs_shapes
-        self.test_inputs_shapes = test_inputs_shapes
+
+        def remove_board_shape(list_shapes: List[List[Shape]]) -> List[List[Shape]]:
+            return [
+                [
+                    shape
+                    for shape in shapes
+                    if Interpreter._WHOLE_BOARD_GROUP_NAME not in shape.shape_groups
+                ]
+                for shapes in list_shapes
+            ]
+
+        self.inputs_shapes = remove_board_shape(inputs_shapes)
+        self.outputs_shapes = remove_board_shape(outputs_shapes)
+        self.test_inputs_shapes = remove_board_shape(test_inputs_shapes)
 
     def solve(
         self, beam_width: int = 1, max_clause_length: int = 4, timeout_seconds: int = 60
