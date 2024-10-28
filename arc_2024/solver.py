@@ -28,6 +28,8 @@ class Solver:
     outputs_shapes: list[list[Shape]]
     test_inputs_shapes: list[list[Shape]]
 
+    _SHAPE_COUNT_MAX_FOR_SHAPE_SHAPE_PREDS = 20
+
     class ArgTypes(NamedTuple):
         colour_type_arg: ArgType
         example_number_arg: ArgType
@@ -1885,15 +1887,19 @@ class Solver:
         )
 
         # bk relating shapes
-        self._append_background_knowledge_for_shapes(
-            background_knowledge,
-            self.empty_test_outputs,
-            self.test_inputs,
-            self.test_inputs_shapes,
-            predicates,
-            possible_colours,
-            ex_number_offset=self._TEST_EX_NUMBER_OFFSET,
-        )
+        if (
+            self._get_non_pixel_max_shape_counts()
+            <= self._SHAPE_COUNT_MAX_FOR_SHAPE_SHAPE_PREDS
+        ):
+            self._append_background_knowledge_for_shapes(
+                background_knowledge,
+                self.empty_test_outputs,
+                self.test_inputs,
+                self.test_inputs_shapes,
+                predicates,
+                possible_colours,
+                ex_number_offset=self._TEST_EX_NUMBER_OFFSET,
+            )
 
         self._append_background_knowledge_with_raw_input(
             background_knowledge,
@@ -2887,3 +2893,19 @@ class Solver:
                         input_shape_name,
                     )
                 )
+
+    def _get_non_pixel_max_shape_counts(self) -> int:
+        max_shape_count = 0
+        for shapes in self.inputs_shapes:
+            non_pixel_shapes = [
+                shape for shape in shapes if not shape.shape_type == ShapeType.PIXEL
+            ]
+            max_shape_count = max(max_shape_count, len(non_pixel_shapes))
+
+        for shapes in self.test_inputs_shapes:
+            non_pixel_shapes = [
+                shape for shape in shapes if not shape.shape_type == ShapeType.PIXEL
+            ]
+            max_shape_count = max(max_shape_count, len(non_pixel_shapes))
+
+        return max_shape_count

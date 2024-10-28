@@ -134,7 +134,7 @@ def run(
             ) = interpretation
 
             elapsed_time = time.time() - start_time
-            if elapsed_time > max_run_time_for_solutions:
+            if elapsed_time > max_run_time_for_solutions:  # max_run_time_for_solutions:
                 print(f"Max time hit. Ending runner after {elapsed_time}s")
                 max_time_hit = True
                 break
