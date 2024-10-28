@@ -153,7 +153,7 @@ def run(
             try:
                 results = solver.solve(
                     beam_width=2,
-                    max_clause_length=8,
+                    max_clause_length=6,
                     timeout_seconds=task_timeout_seconds,
                 )
 
