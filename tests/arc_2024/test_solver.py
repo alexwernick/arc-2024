@@ -19,14 +19,14 @@ from arc_2024.solver import Solver
         ("6e02f1e3", [np.zeros((3, 3), dtype=np.int16)]),
         ("6d75e8bb", [np.zeros((9, 11), dtype=np.int16)]),
         ("6e82a1ae", [np.zeros((10, 10), dtype=np.int16)]),
-        # ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]), # broken
+        # ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]),
         ("6f8cd79b", [np.zeros((7, 6), dtype=np.int16)]),
         ("00d62c1b", [np.zeros((20, 20), dtype=np.int16)]),
         # ("06df4c85", [np.zeros((20, 26), dtype=np.int16)]), # grid
         # ("0962bcdd", [np.zeros((12, 12), dtype=np.int16)]),
         # ("0ca9ddb6", [np.zeros((9, 9), dtype=np.int16)]),
         ("0d3d703e", [np.zeros((3, 3), dtype=np.int16)]),
-        ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]),  # beam width 10. need neg
+        # ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]), need negation
         ("1caeab9d", [np.zeros((10, 10), dtype=np.int16)]),
         ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
@@ -69,7 +69,7 @@ def test_solver(task_id, empty_test_outputs):
             )
 
             results = solver.solve(
-                beam_width=4, max_clause_length=8, timeout_seconds=3000
+                beam_width=2, max_clause_length=8, timeout_seconds=3000
             )
 
             for result, test_output in zip(results, test_outputs):

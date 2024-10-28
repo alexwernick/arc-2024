@@ -1358,7 +1358,7 @@ class Solver:
             "inline-horizontally",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
-            allow_negation=True,
+            allow_negation=False,
         )
         inline_left_horizontally_pred = Predicate(
             "inline-left-horizontally",
@@ -1514,7 +1514,7 @@ class Solver:
                     self._generate_shape_colour_pred_name(colour),
                     2,
                     [ex_num_arg, shape_arg],
-                    allow_negation=True,
+                    allow_negation=False,
                 )
             )
 
