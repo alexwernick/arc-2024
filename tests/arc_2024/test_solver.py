@@ -69,7 +69,7 @@ def test_solver(task_id, empty_test_outputs):
             )
 
             results = solver.solve(
-                beam_width=10, max_clause_length=8, timeout_seconds=3000
+                beam_width=4, max_clause_length=8, timeout_seconds=3000
             )
 
             for result, test_output in zip(results, test_outputs):
