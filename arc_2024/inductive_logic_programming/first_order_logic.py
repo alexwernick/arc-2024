@@ -110,6 +110,7 @@ class Predicate:
     arg_types: list[ArgType]
     incompatible_predicates: set["Predicate"]
     more_specialised_predicates: set["Predicate"]
+    allow_negation: bool
 
     def __init__(
         self,
@@ -118,6 +119,7 @@ class Predicate:
         arg_types: list[ArgType],
         incompatible_predicates: Optional[set["Predicate"]] = None,
         more_specialised_predicates: Optional[set["Predicate"]] = None,
+        allow_negation: bool = False,
     ):
         """
         Initialize a Predicate.
@@ -136,6 +138,7 @@ class Predicate:
         more_specialised_predicates = more_specialised_predicates or set()
         self._validate_predicates_match(more_specialised_predicates)
         self.more_specialised_predicates = more_specialised_predicates
+        self.allow_negation = allow_negation
 
     def __repr__(self):
         """
@@ -378,23 +381,11 @@ class Clause:
         :param variable_assignments: Current assignments for variables (dict).
         :return: A list of possible new bindings (list of dicts).
         """
-
-        def is_valid_value(
-            value: Any, example: dict[str, Any], arg_type: ArgType
-        ) -> bool:
-            if arg_type not in arg_type_var_names:
-                return True
-
-            for var_name in arg_type_var_names[arg_type]:
-                if var_name in example and example[var_name] == value:
-                    return False
-            return True
-
         # TODO: How does this work with negated literals?
         # Right now I don't think it does
 
         # Prepare the arguments with current assignments, identify unbound variables
-        args = []
+        args: list[Any] = []
         for arg in literal.args:
             # if isinstance(arg, Variable):
             if arg.name in variable_assignments:
@@ -408,35 +399,94 @@ class Clause:
             #     # Should not happen
             #     return []
 
-        possible_bindings = []
         # If it's rule based we use rule and don't evaluate background knowledge
         if isinstance(literal.predicate, RuleBasedPredicate):
-            extended_args = [args.copy()]
-            for i, (arg_val, arg) in enumerate(zip(args, literal.args)):
-                if arg_val is None:
-                    # if isinstance(arg, Variable):
-                    new_extended_args = []
-                    for ex_arg in extended_args:
-                        for possible_val in arg.arg_type.possible_values(
-                            variable_assignments
+            return Clause._generate_possible_bindings_for_rule_based_predicate(
+                args, literal, variable_assignments, arg_type_var_names
+            )
+
+        return Clause._generate_possible_bindings_for_predicate(
+            args,
+            literal,
+            variable_assignments,
+            arg_type_var_names,
+            background_knowledge,
+        )
+
+    @staticmethod
+    def _is_valid_value(
+        value: Any,
+        example: dict[str, Any],
+        arg_type: ArgType,
+        arg_type_var_names: dict[ArgType, list[str]],
+    ) -> bool:
+        """
+        Check if the value is valid for the given argument type
+        and the current assignments the mathing arg types
+        """
+        if arg_type not in arg_type_var_names:
+            return True
+
+        for var_name in arg_type_var_names[arg_type]:
+            if var_name in example and example[var_name] == value:
+                return False
+        return True
+
+    @staticmethod
+    def _extend_args(
+        args: list[Any],
+        literal: Literal,
+        variable_assignments: dict[str, Any],
+        arg_type_var_names: dict[ArgType, list[str]],
+    ) -> list[list[Any]]:
+        extended_args = [args.copy()]
+        for i, (arg_val, arg) in enumerate(zip(args, literal.args)):
+            if arg_val is None:
+                # if isinstance(arg, Variable):
+                new_extended_args = []
+                for ex_arg in extended_args:
+                    for possible_val in arg.arg_type.possible_values(
+                        variable_assignments
+                    ):
+                        if not Clause._is_valid_value(
+                            possible_val,
+                            variable_assignments,
+                            arg.arg_type,
+                            arg_type_var_names,
                         ):
-                            if not is_valid_value(
-                                possible_val, variable_assignments, arg.arg_type
-                            ):
-                                continue
+                            continue
 
-                            copy = ex_arg.copy()
-                            copy[i] = possible_val
-                            new_extended_args.append(copy)
-                    extended_args = new_extended_args
-                    # else:
-                    #     raise Exception(
-                    #         "Unexpected non-varable arg in unbound variable position"
-                    #     )
+                        copy = ex_arg.copy()
+                        copy[i] = possible_val
+                        new_extended_args.append(copy)
+                extended_args = new_extended_args
+                # else:
+                #     raise Exception(
+                #         "Unexpected non-varable arg in unbound variable position"
+                #     )
+        return extended_args
 
+    @staticmethod
+    def _generate_possible_bindings_for_rule_based_predicate(
+        args: list[Any],
+        literal: Literal,
+        variable_assignments: dict[str, Any],
+        arg_type_var_names: dict[ArgType, list[str]],
+    ) -> list[dict[str, Any]]:
+        def generate_bindings(
+            extended_args: list[list[Any]], evaluate_literal: bool
+        ) -> list[dict[str, Any]]:
+            if not isinstance(literal.predicate, RuleBasedPredicate):
+                raise ValueError("Predicate must be a RuleBasedPredicate")
+            possible_bindings: list[dict[str, Any]] = []
             for ex_args in extended_args:
                 new_bindings = {}
-                if literal.predicate.evaluate(*ex_args):
+
+                result: bool = True
+                if evaluate_literal:
+                    result = literal.predicate.evaluate(*ex_args)
+
+                if result:
                     for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
                         # if isinstance(arg, Variable):
                         if arg_val is None:
@@ -446,10 +496,64 @@ class Clause:
                         #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
                         #     )
                     possible_bindings.append(new_bindings)
-        else:
-            # Retrieve facts for the predicate
-            predicate_facts = background_knowledge.get(literal.predicate.name, set())
+            return possible_bindings
 
+        extended_args = Clause._extend_args(
+            args, literal, variable_assignments, arg_type_var_names
+        )
+
+        if not isinstance(literal.predicate, RuleBasedPredicate):
+            raise ValueError("Predicate must be a RuleBasedPredicate")
+
+        possible_bindings = generate_bindings(extended_args, True)
+
+        if literal.negated and len(possible_bindings) == 0:
+            # This is the case where the negation is valid
+            # hence we extend with all possible bindings
+            possible_bindings = generate_bindings(extended_args, False)
+            pass
+
+        return possible_bindings
+
+    @staticmethod
+    def _generate_possible_bindings_for_predicate(
+        args: list[Any],
+        literal: Literal,
+        variable_assignments: dict[str, Any],
+        arg_type_var_names: dict[ArgType, list[str]],
+        background_knowledge: dict[str, set[tuple]],
+    ) -> list[dict[str, Any]]:
+        def generate_bindings_for_negated(
+            extended_args: list[list[Any]], pred_facts: set[tuple]
+        ) -> list[dict[str, Any]]:
+            possible_bindings: list[dict[str, Any]] = []
+            none_true: bool = True
+            for ex_args in extended_args:
+                if tuple(ex_args) in pred_facts:
+                    none_true = False
+                    break
+
+            if not none_true:
+                return possible_bindings
+
+            for ex_args in extended_args:
+                new_bindings = {}
+                for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
+                    # if isinstance(arg, Variable):
+                    if arg_val is None:
+                        new_bindings[arg.name] = ex_arg
+                    # else:
+                    #     raise Exception(
+                    #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
+                    #     )
+                possible_bindings.append(new_bindings)
+            return possible_bindings
+
+        possible_bindings: list[dict[str, Any]] = []
+        # Retrieve facts for the predicate
+        predicate_facts = background_knowledge.get(literal.predicate.name, set())
+
+        if not literal.negated:
             for fact in predicate_facts:
                 # Check if the fact matches the known assignments
                 match = True
@@ -460,8 +564,11 @@ class Clause:
                         # Unbound variable; propose a new binding
                         # if isinstance(arg, Variable):
 
-                        if not is_valid_value(
-                            fact_val, variable_assignments, arg.arg_type
+                        if not Clause._is_valid_value(
+                            fact_val,
+                            variable_assignments,
+                            arg.arg_type,
+                            arg_type_var_names,
                         ):
                             match = False
                             break  # No need to check further
@@ -479,6 +586,13 @@ class Clause:
 
                 if match:
                     possible_bindings.append(new_bindings)
+        else:
+            extended_args = Clause._extend_args(
+                args, literal, variable_assignments, arg_type_var_names
+            )
+            possible_bindings = generate_bindings_for_negated(
+                extended_args, predicate_facts
+            )
 
         return possible_bindings
 
@@ -526,3 +640,28 @@ class Clause:
         preds = [lit.predicate for lit in self.body]
         counts = Counter(preds)
         return [item for item, count in counts.items() if count > 1]
+
+    @staticmethod
+    def _un_extend_examples(
+        old_possible_bindings: list[dict[str, Any]],
+        new_possible_bindings: list[dict[str, Any]],
+        negated_literal: bool = False,
+    ) -> list[dict[str, Any]]:
+        is_example_covered = True
+        non_extended_possible_bindings: list[dict[str, Any]] = []
+        for old_example in old_possible_bindings:
+            for new_posivive in new_possible_bindings:
+                is_example_covered = True
+                for key in old_example.keys():
+                    if old_example[key] != new_posivive[key]:
+                        is_example_covered = False
+                        break
+                if is_example_covered:
+                    break
+
+            if (is_example_covered and not negated_literal) or (
+                not is_example_covered and negated_literal
+            ):
+                non_extended_possible_bindings.append(old_example)
+
+        return non_extended_possible_bindings

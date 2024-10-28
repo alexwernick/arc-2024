@@ -189,12 +189,7 @@ class FOIL:
         beam = [
             beam_item for beam_item in beam if len(beam_item.old_negative_examples) == 0
         ]
-        beam = sorted(
-            beam,
-            key=lambda beam_item: len(beam_item.old_positive_examples),
-            reverse=True,
-        )
-
+        # take the top, already sorted by info
         return (beam[0].clause, beam[0].non_extended_pos_covered)
 
     def _find_next_best_literals(
@@ -227,6 +222,19 @@ class FOIL:
             for example in old_positive_examples_copy:
                 new_positive_examples.extend(self._extend_example(example, literal))
 
+            if literal.negated:
+                new_positive_examples = self._trim_examples_with_duplicate_literals(
+                    clause, new_positive_examples, literal
+                )
+                new_positive_examples_unextend = self._un_extend_examples(
+                    old_positive_examples, new_positive_examples, literal.negated
+                )
+                new_positive_examples = []
+                for example in copy.deepcopy(new_positive_examples_unextend):
+                    new_positive_examples.extend(
+                        self._extend_example(example, literal, evaluate_literal=False)
+                    )
+
             new_positive_examples = self._trim_examples_with_duplicate_literals(
                 clause, new_positive_examples, literal
             )
@@ -238,8 +246,8 @@ class FOIL:
             new_non_extended_positive_examples_count = len(
                 new_non_extended_positive_examples
             )
+
             new_positive_count = len(new_positive_examples)
-            new_negative_count = 0  # for now we assume best case is 0
             old_positive_count = len(old_positive_examples)
             old_negative_count = len(old_negative_examples)
 
@@ -275,6 +283,19 @@ class FOIL:
             old_negative_examples_copy = copy.deepcopy(old_negative_examples)
             for example in old_negative_examples_copy:
                 new_negative_examples.extend(self._extend_example(example, literal))
+
+            if literal.negated:
+                new_negative_examples = self._trim_examples_with_duplicate_literals(
+                    clause, new_negative_examples, literal
+                )
+                new_negative_examples_unextend = self._un_extend_examples(
+                    old_negative_examples, new_negative_examples, literal.negated
+                )
+                new_negative_examples = []
+                for example in copy.deepcopy(new_negative_examples_unextend):
+                    new_negative_examples.extend(
+                        self._extend_example(example, literal, evaluate_literal=False)
+                    )
 
             new_negative_examples = self._trim_examples_with_duplicate_literals(
                 clause, new_negative_examples, literal
@@ -315,7 +336,10 @@ class FOIL:
         return best_literals
 
     def _extend_example(
-        self, example: dict[str, Any], literal_to_add: Literal
+        self,
+        example: dict[str, Any],
+        literal_to_add: Literal,
+        evaluate_literal: bool = True,
     ) -> list[dict[str, Any]]:
         """
         Extend the example with the target predicate.
@@ -346,7 +370,7 @@ class FOIL:
         #         continue
 
         return self._extend_example_with_new_vars(
-            new_vars, extended_examples, literal_to_add
+            new_vars, extended_examples, literal_to_add, evaluate_literal
         )
 
     # @profile
@@ -355,6 +379,7 @@ class FOIL:
         new_vars: list[Variable],
         extended_examples: list[dict[str, Any]],
         literal_to_add: Literal,
+        evaluate_literal: bool,
     ) -> list[dict[str, Any]]:
         valid_extended_examples: list[dict[str, Any]] = []
 
@@ -364,11 +389,13 @@ class FOIL:
             for example in extended_examples:
                 for value in new_var.arg_type.possible_values(example):
                     example[new_var.name] = value
-                    if self._partial_evaluate_literal(literal_to_add, example):
+                    if not evaluate_literal or self._partial_evaluate_literal(
+                        literal_to_add, example
+                    ):
                         new_extended_examples.append(copy.copy(example))
 
             return self._extend_example_with_new_vars(
-                new_vars, new_extended_examples, literal_to_add
+                new_vars, new_extended_examples, literal_to_add, evaluate_literal
             )
 
         if len(new_vars) == 1:
@@ -376,12 +403,14 @@ class FOIL:
             for example in extended_examples:
                 for value in new_var.arg_type.possible_values(example):
                     example[new_var.name] = value
-                    if self._evaluate_literal(literal_to_add, example):
+                    if not evaluate_literal or self._evaluate_literal(
+                        literal_to_add, example
+                    ):
                         valid_extended_examples.append(copy.copy(example))
             return valid_extended_examples
 
         for example in extended_examples:
-            if self._evaluate_literal(literal_to_add, example):
+            if not evaluate_literal or self._evaluate_literal(literal_to_add, example):
                 valid_extended_examples.append(example)  # no new variables to add
         return valid_extended_examples
 
@@ -399,8 +428,6 @@ class FOIL:
         possible_literals: list[Literal] = []
         # get the current variables in the clause
         current_vars = list(clause.variables)
-        # get the literals already used in the clause so we don't repeat
-        used_literals = set(clause.body)
 
         valid_vars_per_arg: list[list[Variable]] = [[] for _ in range(predicate.arity)]
 
@@ -446,14 +473,24 @@ class FOIL:
             literal = Literal(predicate, variables)
             if literal in clause.incompatable_literals:
                 continue
-            # negated_literal = Literal(predicate, variables, negated=True)
-            # Avoid adding duplicate literals
-            if literal not in used_literals:
-                possible_literals.append(literal)
+
+            negated_literal = Literal(predicate, variables, negated=True)
 
             # Avoid adding duplicate literals
-            # if negated_literal not in used_literals:
-            #     possible_literals.append(negated_literal)
+            # We compare this way and purposfully don't check negation
+            # i.e. if we have Q(V1, V2) we don't want to add not Q(V1, V2)
+            lit_in_clause = False
+            for lit in clause.body:
+                if lit.predicate == predicate and literal.args == lit.args:
+                    lit_in_clause = True
+                    break
+
+            if lit_in_clause:
+                continue
+
+            possible_literals.append(literal)
+            if predicate.allow_negation:
+                possible_literals.append(negated_literal)
 
         return possible_literals
 
@@ -462,19 +499,6 @@ class FOIL:
     ) -> list[Literal]:
         """
         Generate new literals to add to the clause.
-        4 types of literals can be generated:
-        - Xj = Xk
-        - Xj != Xk
-        - Q(V1, V2,..., Vk)
-        - not Q(V1, V2,..., Vk)
-
-        Foil investigates entire search space with
-        three significant qualifications:
-        - The literal must contain one existing variable
-        - If Q is the same as the relation P on the LHS of the clause,
-        possible arguments are restricted to prevent recursion
-        - The form of the Gain heursitic allows a kind of purning akin
-        to aphla-beta pruning in
         """
         literals: list[Literal] = []
         for predicate in self.predicates:
@@ -524,31 +548,28 @@ class FOIL:
 
     @staticmethod
     def _un_extend_examples(
-        old_positive_examples: list[dict[str, Any]],
-        new_positive_examples: list[dict[str, Any]],
+        old_examples: list[dict[str, Any]],
+        new_examples: list[dict[str, Any]],
+        negated_literal: bool = False,
     ) -> list[dict[str, Any]]:
-        """
-        This slighly odd function is best exmplained by the following
-        by look at the paper Leraning Logical Definitions
-        from Relations by Quinlan et al.
-        We are calculation the de extended examples in order to get T1++
-        """
-        is_pos_example_covered = True
-        non_extended_positive_examples: list[dict[str, Any]] = []
-        for old_example in old_positive_examples:
-            for new_posivive in new_positive_examples:
-                is_pos_example_covered = True
+        is_example_covered = True
+        non_extended_examples: list[dict[str, Any]] = []
+        for old_example in old_examples:
+            for new_posivive in new_examples:
+                is_example_covered = True
                 for key in old_example.keys():
                     if old_example[key] != new_posivive[key]:
-                        is_pos_example_covered = False
+                        is_example_covered = False
                         break
-                if is_pos_example_covered:
+                if is_example_covered:
                     break
 
-            if is_pos_example_covered:
-                non_extended_positive_examples.append(old_example)
+            if (is_example_covered and not negated_literal) or (
+                not is_example_covered and negated_literal
+            ):
+                non_extended_examples.append(old_example)
 
-        return non_extended_positive_examples
+        return non_extended_examples
 
     def _beam_contains_item_with_no_negatives(
         self, beam: list["FOIL.BeamItem"]
@@ -594,15 +615,15 @@ class FOIL:
 
         # If it's rule based we use rule and don't evaluate background knowledge
         if isinstance(literal.predicate, RuleBasedPredicate):
-            if literal.negated:
-                return not literal.predicate.evaluate(*bound_args)
+            # if literal.negated:
+            #     return not literal.predicate.evaluate(*bound_args)
             return literal.predicate.evaluate(*bound_args)
 
         fact: bool = self._is_a_fact(literal.predicate.name, tuple(bound_args))
 
         # Check if the bound arguments are in the predicate's facts
-        if literal.negated:
-            return not fact
+        # if literal.negated:
+        #     return not fact
         return fact
 
     @lru_cache(maxsize=5000000)
@@ -645,6 +666,9 @@ class FOIL:
         #     all_vars_bound = False
         #     bound_args.append(None)
 
+        # if literal.negated:
+        #     return True
+
         bound_args = [
             example[arg.name] if arg.name in example else None for arg in literal.args
         ]
@@ -656,8 +680,7 @@ class FOIL:
             if not all_vars_bound:
                 return True
 
-            if literal.negated:
-                return not literal.predicate.evaluate(*bound_args)
+            # should never reach here in reality
             return literal.predicate.evaluate(*bound_args)
 
         # Check if the bound arguments are in the predicate's facts
@@ -665,8 +688,8 @@ class FOIL:
             literal.predicate.name, tuple(bound_args)
         )
 
-        if literal.negated:
-            return not possible_fact
+        # if literal.negated:
+        #     return True # we must assume it is possible
         return possible_fact
 
     def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:
@@ -711,35 +734,6 @@ class FOIL:
                 current_level["__fact__"] = fact
             bk_indices[predicate_name] = index
         return bk_indices
-
-    # @staticmethod
-    # def _trim_examples_with_duplicate_literals_depricated(
-    #     clause: Clause, examples: list[dict[str, Any]], literal: Literal
-    # ) -> list[dict[str, Any]]:
-    #     matching_literals = [
-    #         lit for lit in clause.body if lit.predicate == literal.predicate
-    #     ]
-    #     pairs: list[tuple[str, str]] = []
-
-    #     for lit in matching_literals:
-    #         for arg1, arg2 in zip(lit.args, literal.args):
-    #             if arg1.name != arg2.name:
-    #                 pairs.append((arg1.name, arg2.name))
-
-    #     if not pairs:
-    #         return examples
-
-    #     examples_trimmed = []
-    #     for example in examples:
-    #         all_args_match = True
-    #         for arg_name_1, arg_name_2 in pairs:
-    #             if example[arg_name_1] != example[arg_name_2]:
-    #                 all_args_match = False
-    #                 break
-    #         if not all_args_match:
-    #             examples_trimmed.append(example)
-
-    #     return examples_trimmed
 
     @staticmethod
     def _trim_examples_with_duplicate_literals(

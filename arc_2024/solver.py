@@ -1238,7 +1238,8 @@ class Solver:
         # args in target predicate & body predicates
         colour_type_arg = ArgType("colour", possible_colours)
         example_number_arg = ArgType(
-            "example_number", list(range(len(self.inputs_shapes)))
+            "example_number",
+            list(range(len(self.inputs_shapes))),  # never actually gets extended
         )
         i_arg = ArgType("i", possible_values_fn=self._get_possible_i_values_func())
         j_arg = ArgType("j", possible_values_fn=self._get_possible_j_values_func())
@@ -1357,6 +1358,7 @@ class Solver:
             "inline-horizontally",
             4,
             [ex_num_arg, i_arg, j_arg, shape_arg],
+            allow_negation=False,
         )
         inline_left_horizontally_pred = Predicate(
             "inline-left-horizontally",
@@ -1512,6 +1514,7 @@ class Solver:
                     self._generate_shape_colour_pred_name(colour),
                     2,
                     [ex_num_arg, shape_arg],
+                    allow_negation=False,
                 )
             )
 
