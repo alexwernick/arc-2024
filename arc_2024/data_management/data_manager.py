@@ -173,3 +173,12 @@ class DataManager:
             file.seek(0)
             json.dump(data, file)
             file.truncate()
+
+    def get_solution_data(self, file_name: str) -> dict:
+        """
+        Returns the solution data
+        """
+        with open(Path(self._output_dir) / file_name, "r") as file:
+            data = json.load(file)
+
+        return data

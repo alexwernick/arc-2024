@@ -19,19 +19,12 @@ from arc_2024.solver import Solver
         ("6e02f1e3", [np.zeros((3, 3), dtype=np.int16)]),
         ("6d75e8bb", [np.zeros((9, 11), dtype=np.int16)]),
         ("6e82a1ae", [np.zeros((10, 10), dtype=np.int16)]),
-        # ("6e19193c", [np.zeros((10, 10), dtype=np.int16)]),
         ("6f8cd79b", [np.zeros((7, 6), dtype=np.int16)]),
         ("00d62c1b", [np.zeros((20, 20), dtype=np.int16)]),
-        # ("06df4c85", [np.zeros((20, 26), dtype=np.int16)]), # grid
-        # ("0962bcdd", [np.zeros((12, 12), dtype=np.int16)]),
-        # ("0ca9ddb6", [np.zeros((9, 9), dtype=np.int16)]),
-        ("0d3d703e", [np.zeros((3, 3), dtype=np.int16)]),
-        # ("178fcbfb", [np.zeros((12, 11), dtype=np.int16)]), need negation
         ("1caeab9d", [np.zeros((10, 10), dtype=np.int16)]),
         ("1a07d186", [np.zeros((19, 26), dtype=np.int16)]),
         ("0520fde7", [np.zeros((3, 3), dtype=np.int16)]),
         ("1b2d62fb", [np.zeros((5, 3), dtype=np.int16)]),
-        # ("08ed6ac7", [np.zeros((9, 9), dtype=np.int16)]),
         ("7c008303", [np.zeros((6, 6), dtype=np.int16)]),
         ("007bbfb7", [np.zeros((9, 9), dtype=np.int16)]),
         ("6ecd11f4", [np.zeros((4, 4), dtype=np.int16)]),
@@ -73,6 +66,9 @@ def test_solver(task_id, empty_test_outputs):
             results = solver.solve(
                 beam_width=2, max_clause_length=6, timeout_seconds=3000
             )
+
+            if len(test_outputs) == 0:
+                assert False, f"Your test data has no solution: {task_id}"
 
             for result, test_output in zip(results, test_outputs):
                 assert np.array_equal(
@@ -549,14 +545,9 @@ def test_append_background_knowledge_for_expandable_shapes_ex1():
 
     input_shape_name = "shape"
     ex_num = 1
-    # mask_overlapping_expanded_to_grid_pred = Predicate(
-    #     "mask-overlapping-expanded-to-grid",
-    #     0,
-    #     [],
-    # )
 
-    mask_overlapping_and_colour_expanded_to_grid_pred = Predicate(
-        "mask-overlapping-and-colour-expanded-to-grid",
+    mask_overlapping_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-expanded-to-grid",
         0,
         [],
     )
@@ -575,12 +566,11 @@ def test_append_background_knowledge_for_expandable_shapes_ex1():
                 np.zeros((6, 6)),
                 ex_num,
                 input_shape_name,
-                # mask_overlapping_expanded_to_grid_pred,
-                mask_overlapping_and_colour_expanded_to_grid_pred,
+                mask_overlapping_expanded_to_grid_pred,
                 possible_colours,
             )
 
-    mask_overlapping_and_colour_expanded_to_grid_set = {
+    mask_overlapping_expanded_to_grid_set = {
         (ex_num, Colour(2), 0, 0, input_shape_name),
         (ex_num, Colour(2), 0, 1, input_shape_name),
         (ex_num, Colour(2), 0, 2, input_shape_name),
@@ -619,19 +609,10 @@ def test_append_background_knowledge_for_expandable_shapes_ex1():
         (ex_num, Colour(7), 5, 5, input_shape_name),
     }
 
-    # mask_overlapping_expanded_to_grid_set = {
-    #     (ex_num, i, j, input_shape_name) for i in range(6) for j in range(6)
-    # }
-
     assert (
-        background_knowledge[mask_overlapping_and_colour_expanded_to_grid_pred.name]
-        == mask_overlapping_and_colour_expanded_to_grid_set
+        background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
+        == mask_overlapping_expanded_to_grid_set
     )
-
-    # assert (
-    #     background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
-    #     == mask_overlapping_expanded_to_grid_set
-    # )
 
 
 def test_append_background_knowledge_for_expandable_shapes_ex2():
@@ -643,14 +624,9 @@ def test_append_background_knowledge_for_expandable_shapes_ex2():
 
     input_shape_name = "shape"
     ex_num = 1
-    # mask_overlapping_expanded_to_grid_pred = Predicate(
-    #     "mask-overlapping-expanded-to-grid",
-    #     0,
-    #     [],
-    # )
 
-    mask_overlapping_and_colour_expanded_to_grid_pred = Predicate(
-        "mask-overlapping-and-colour-expanded-to-grid",
+    mask_overlapping_expanded_to_grid_pred = Predicate(
+        "mask-overlapping-expanded-to-grid",
         0,
         [],
     )
@@ -669,12 +645,11 @@ def test_append_background_knowledge_for_expandable_shapes_ex2():
                 np.zeros((4, 6)),
                 ex_num,
                 input_shape_name,
-                # mask_overlapping_expanded_to_grid_pred,
-                mask_overlapping_and_colour_expanded_to_grid_pred,
+                mask_overlapping_expanded_to_grid_pred,
                 possible_colours,
             )
 
-    mask_overlapping_and_colour_expanded_to_grid_set = {
+    mask_overlapping_expanded_to_grid_set = {
         (ex_num, Colour(2), 0, 0, input_shape_name),
         (ex_num, Colour(2), 0, 1, input_shape_name),
         (ex_num, Colour(2), 1, 0, input_shape_name),
@@ -697,20 +672,10 @@ def test_append_background_knowledge_for_expandable_shapes_ex2():
         (ex_num, Colour(7), 3, 5, input_shape_name),
     }
 
-    # mask_overlapping_expanded_to_grid_set = {
-    #     (ex[0], ex[2], ex[3], ex[4])
-    #     for ex in mask_overlapping_and_colour_expanded_to_grid_set
-    # }
-
     assert (
-        background_knowledge[mask_overlapping_and_colour_expanded_to_grid_pred.name]
-        == mask_overlapping_and_colour_expanded_to_grid_set
+        background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
+        == mask_overlapping_expanded_to_grid_set
     )
-
-    # assert (
-    #     background_knowledge[mask_overlapping_expanded_to_grid_pred.name]
-    #     == mask_overlapping_expanded_to_grid_set
-    # )
 
 
 def test_append_background_knowledge_for_repeatable_shapes_ex1():
@@ -722,14 +687,9 @@ def test_append_background_knowledge_for_repeatable_shapes_ex1():
 
     input_shape_name = "shape"
     ex_num = 1
-    # mask_overlapping_repeated_grid_pred = Predicate(
-    #     "mask-overlapping-repeated-grid",
-    #     0,
-    #     [],
-    # )
 
-    mask_overlapping_and_colour_repeated_grid_pred = Predicate(
-        "mask-overlapping-and-colour-repeated-grid",
+    mask_overlapping_repeated_grid_pred = Predicate(
+        "mask-overlapping-repeated-grid",
         0,
         [],
     )
@@ -748,12 +708,11 @@ def test_append_background_knowledge_for_repeatable_shapes_ex1():
                 np.zeros((6, 6)),
                 ex_num,
                 input_shape_name,
-                # mask_overlapping_repeated_grid_pred,
-                mask_overlapping_and_colour_repeated_grid_pred,
+                mask_overlapping_repeated_grid_pred,
                 possible_colours,
             )
 
-    mask_overlapping_and_colour_repeated_grid_set = {
+    mask_overlapping_repeated_grid_set = {
         (ex_num, Colour(7), 0, 1, input_shape_name),
         (ex_num, Colour(7), 0, 2, input_shape_name),
         (ex_num, Colour(7), 1, 0, input_shape_name),
@@ -784,17 +743,7 @@ def test_append_background_knowledge_for_repeatable_shapes_ex1():
         (ex_num, Colour(6), 5, 2, input_shape_name),
     }
 
-    # mask_overlapping_repeated_grid_set = {
-    #     (ex[0], ex[2], ex[3], ex[4])
-    #     for ex in mask_overlapping_and_colour_repeated_grid_set
-    # }
-
     assert (
-        background_knowledge[mask_overlapping_and_colour_repeated_grid_pred.name]
-        == mask_overlapping_and_colour_repeated_grid_set
+        background_knowledge[mask_overlapping_repeated_grid_pred.name]
+        == mask_overlapping_repeated_grid_set
     )
-
-    # assert (
-    #     background_knowledge[mask_overlapping_repeated_grid_pred.name]
-    #     == mask_overlapping_repeated_grid_set
-    # )

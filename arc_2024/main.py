@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 from arc_2024.runner import run
 
+_RUN_PROFILER = False
+
 
 def main():
     # load config variables from .env file
@@ -32,9 +34,11 @@ def main():
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
+    if _RUN_PROFILER:
+        profiler = cProfile.Profile()
+        profiler.enable()
     main()
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats("cumulative")
-    stats.print_stats()
+    if _RUN_PROFILER:
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats("cumulative")
+        stats.print_stats()

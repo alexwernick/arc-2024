@@ -38,8 +38,8 @@ def run(
     if split_tasks:
         data_manager.split_tasks_to_individual_files(test_file_name)
 
-    sumbission_file_name = "submission.json"
-    data_manager.create_valid_empty_solution_file(sumbission_file_name)
+    subission_file_name = "submission.json"
+    data_manager.create_valid_empty_solution_file(subission_file_name)
 
     # This is just to test format on kaggle server
     if submit_empty_solutions:
@@ -57,9 +57,9 @@ def run(
         return
 
     # we give 10% of time to solve grid size and 90% to solve the task
-    # we double time so we will most likely timout but at least we can have a good
+    # we triple time so we will most likely timout but at least we can have a good
     # go at some of the puzzles
-    run_time_per_task = max_run_time_for_solutions / len(task_ids) * 2
+    run_time_per_task = max_run_time_for_solutions / len(task_ids) * 3
     grid_size_timeout_seconds = int(run_time_per_task * 0.1)
     task_timeout_seconds = int(run_time_per_task * 0.9)
 
@@ -163,11 +163,25 @@ def run(
 
                 if verify_solutions:
                     verify_solution(results, test_outputs, task_id)
-                data_manager.update_solution_file(
-                    sumbission_file_name, task_id, results
-                )
+                data_manager.update_solution_file(subission_file_name, task_id, results)
                 break
             except Exception as e:
                 print(
                     f"Task {task_id} was not solved due to exception {e} using interpret_type {interpret_type.name}"  # noqa: E501
                 )
+
+    if not verify_solutions:
+        return
+
+    solutions = data_manager.get_solution_data(subission_file_name)
+    correct_solutions = 0
+    for task_id in task_ids:
+        _, _, _, test_outputs = data_manager.get_task_data(task_id)
+        task_solutions = solutions[task_id]
+        for solution, test_output in zip(task_solutions, test_outputs):
+            array_solution = np.array(solution["attempt_1"], dtype=np.int16)
+            correct_solution = np.array_equal(array_solution, test_output)
+            if correct_solution:
+                correct_solutions += 1
+
+    print(f"Correct solutions: {correct_solutions}/{len(task_ids)}")
