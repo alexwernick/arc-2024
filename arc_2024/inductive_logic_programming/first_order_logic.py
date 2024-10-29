@@ -81,29 +81,6 @@ class Variable:
         return hash(("Variable", self.name))
 
 
-# class Constant:
-#     value: Any
-
-#     def __init__(self, value: Any):
-#         """
-#         Initialize a Constant.
-#         :param value: The value of the constant (e.g., 'Alice', 'Bob').
-#         """
-#         self.value = value  # Value of the constant, could be any hashable type
-
-#     def __repr__(self):
-#         return f"'{self.value}'"  # Represent constants with quotes
-
-#     def __eq__(self, other):
-#         return isinstance(other, Constant) and self.value == other.value
-
-#     def __hash__(self):
-#         return hash(("Constant", self.value))
-
-
-# Argument = Union[Variable, Constant]
-
-
 class Predicate:
     name: str
     arity: int
@@ -236,15 +213,11 @@ class Literal:
             )
 
         for arg, arg_type in zip(args, predicate.arg_types):
-            if (
-                # isinstance(arg, Variable) and
-                arg.arg_type
-                != arg_type
-            ):
+            if arg.arg_type != arg_type:
                 raise ValueError(f"Variable '{arg.name}' must be of type '{arg_type}'")
 
         self.predicate = predicate
-        self.args = args  # List of variable names or constants
+        self.args = args  # List of variables
         self.negated = negated
 
     def __repr__(self):
@@ -363,11 +336,6 @@ class Clause:
             variable_assignments, background_knowledge, arg_type_var_names, 0
         )
 
-        # for literal in self.body:
-        #     if not evaluate_literal(literal, example, background_knowledge):
-        #         return False
-        # return True
-
     @staticmethod
     def _get_possible_bindings(
         literal: Literal,
@@ -381,23 +349,13 @@ class Clause:
         :param variable_assignments: Current assignments for variables (dict).
         :return: A list of possible new bindings (list of dicts).
         """
-        # TODO: How does this work with negated literals?
-        # Right now I don't think it does
-
         # Prepare the arguments with current assignments, identify unbound variables
         args: list[Any] = []
         for arg in literal.args:
-            # if isinstance(arg, Variable):
             if arg.name in variable_assignments:
                 args.append(variable_assignments[arg.name])
             else:
                 args.append(None)
-
-            # elif isinstance(arg, Constant):
-            #     args.append(arg.value)
-            # else:
-            #     # Should not happen
-            #     return []
 
         # If it's rule based we use rule and don't evaluate background knowledge
         if isinstance(literal.predicate, RuleBasedPredicate):
@@ -442,7 +400,6 @@ class Clause:
         extended_args = [args.copy()]
         for i, (arg_val, arg) in enumerate(zip(args, literal.args)):
             if arg_val is None:
-                # if isinstance(arg, Variable):
                 new_extended_args = []
                 for ex_arg in extended_args:
                     for possible_val in arg.arg_type.possible_values(
@@ -460,10 +417,6 @@ class Clause:
                         copy[i] = possible_val
                         new_extended_args.append(copy)
                 extended_args = new_extended_args
-                # else:
-                #     raise Exception(
-                #         "Unexpected non-varable arg in unbound variable position"
-                #     )
         return extended_args
 
     @staticmethod
@@ -488,13 +441,8 @@ class Clause:
 
                 if result:
                     for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
-                        # if isinstance(arg, Variable):
                         if arg_val is None:
                             new_bindings[arg.name] = ex_arg
-                        # else:
-                        #     raise Exception(
-                        #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
-                        #     )
                     possible_bindings.append(new_bindings)
             return possible_bindings
 
@@ -539,13 +487,8 @@ class Clause:
             for ex_args in extended_args:
                 new_bindings = {}
                 for arg_val, arg, ex_arg in zip(args, literal.args, ex_args):
-                    # if isinstance(arg, Variable):
                     if arg_val is None:
                         new_bindings[arg.name] = ex_arg
-                    # else:
-                    #     raise Exception(
-                    #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
-                    #     )
                 possible_bindings.append(new_bindings)
             return possible_bindings
 
@@ -562,8 +505,6 @@ class Clause:
                 for arg_val, fact_val, arg in zip(args, fact, literal.args):
                     if arg_val is None:
                         # Unbound variable; propose a new binding
-                        # if isinstance(arg, Variable):
-
                         if not Clause._is_valid_value(
                             fact_val,
                             variable_assignments,
@@ -574,10 +515,6 @@ class Clause:
                             break  # No need to check further
 
                         new_bindings[arg.name] = fact_val
-                        # else:
-                        #     raise Exception(
-                        #         "Unexpected non-varable arg in unbound variable position"  # noqa: E501
-                        #     )
 
                     elif arg_val != fact_val:
                         # Known variable assignment does not match the fact's value

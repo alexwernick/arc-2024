@@ -5,7 +5,7 @@ import time
 from functools import lru_cache
 from typing import Any, NamedTuple
 
-from arc_2024.inductive_logic_programming.first_order_logic import (  # Constant,
+from arc_2024.inductive_logic_programming.first_order_logic import (
     ArgType,
     Clause,
     Literal,
@@ -22,7 +22,6 @@ class FOIL:
     predicates: list[Predicate]
     background_knowledge: dict[str, set[tuple]]
     background_knowledge_indices: dict
-    allow_recursion: bool
     beam_width: int
     _max_clause_length: int
     _timeout_seconds: int
@@ -47,7 +46,6 @@ class FOIL:
         target_literal: Literal,
         predicates: list[Predicate],
         background_knowledge: dict[str, set[tuple]],
-        allow_recursion: bool = False,
         beam_width: int = 1,
         max_clause_length: int = 7,
         timeout_seconds: int = 60,
@@ -58,13 +56,11 @@ class FOIL:
         :param target_literal: The target literal to learn rules for.
         :param predicates: A list of Predicate objects.
         :param background_knowledge: A dict mapping predicate names to sets of facts.
-        :param allow_recursion: If True, allow recursion in the learned rules.
         """
         self.target_literal = target_literal
         self.predicates = predicates
         self.background_knowledge = background_knowledge
         self.background_knowledge_indices = self._build_background_knowledge_indices()
-        self.allow_recursion = allow_recursion
         self.beam_width = beam_width
         self._max_clause_length = max_clause_length
         self._timeout_seconds = timeout_seconds
@@ -83,7 +79,6 @@ class FOIL:
             ex for is_pos, ex in examples if not is_pos
         ]
 
-        # Maybe try limiting number of shapes in clause?....
         uncovered_pos = pos_examples.copy()
 
         while uncovered_pos:
@@ -94,9 +89,6 @@ class FOIL:
             # Remove positive examples covered by this clause
             uncovered_pos = [d for d in uncovered_pos if d not in best_pos_covered]
             self.rules.append(clause)
-
-            if self.allow_recursion:
-                pass  # I think we need to add the clause to the background knowledge
 
     def predict(self, example: dict[str, Any]) -> bool:
         """
@@ -184,12 +176,11 @@ class FOIL:
             # take top beam_width items
             beam = new_beam[: self.beam_width]
 
-        # We may have more than one beam with no negative examples
-        # so we take the one with the most positive examples
         beam = [
             beam_item for beam_item in beam if len(beam_item.old_negative_examples) == 0
         ]
-        # take the top, already sorted by info
+        # We may have more than one beam with no negative examples
+        # so we take the one with the highest information gain (sorted above)
         return (beam[0].clause, beam[0].non_extended_pos_covered)
 
     def _find_next_best_literals(
@@ -214,7 +205,7 @@ class FOIL:
                 continue  # Avoid cycles
 
             if literal == clause.head:
-                continue  # Avoid cycles
+                continue  # Avoid recursion
 
             new_positive_examples: list[dict[str, Any]] = []
             old_positive_examples_copy = copy.deepcopy(old_positive_examples)
@@ -354,26 +345,10 @@ class FOIL:
             arg for arg in literal_to_add.args if arg.name not in example
         ]
 
-        # new_vars: list[Variable] = []
-        # for arg in literal_to_add.args:
-        #     # Check if the argument is a variable in the example
-        #     # if so get value from example
-        #     if (
-        #         isinstance(arg, Variable) and
-        #         arg.name not in example):
-        #         new_vars.append(arg)
-        #         continue
-
-        #     # Check if the argument is a constant
-        #     # if so append to args
-        #     if isinstance(arg, Constant):
-        #         continue
-
         return self._extend_example_with_new_vars(
             new_vars, extended_examples, literal_to_add, evaluate_literal
         )
 
-    # @profile
     def _extend_example_with_new_vars(
         self,
         new_vars: list[Variable],
@@ -511,8 +486,6 @@ class FOIL:
 
         return literals
 
-        # TODO: extend to include inequality literals
-
     @staticmethod
     def _information_gain(
         new_non_extended_positive_examples_count: int,
@@ -579,7 +552,6 @@ class FOIL:
                 return True
         return False
 
-    # @profile
     def _evaluate_literal(
         self,
         literal: Literal,
@@ -595,35 +567,18 @@ class FOIL:
         # Bind the arguments using the example's variable assignments
         bound_args = []
         for arg in literal.args:
-            # Check if the argument is a variable in the example
-            # if so get value from example
-            if (
-                # isinstance(arg, Variable) and
-                arg.name
-                in example
-            ):
+            if arg.name in example:
                 bound_args.append(example[arg.name])
                 continue
-
-            # Check if the argument is a constant
-            # if so append to args
-            # if isinstance(arg, Constant):
-            #     bound_args.append(arg.value)
-            #     continue
 
             raise ValueError(f"Unbound variable '{arg}' in literal '{literal}'")
 
         # If it's rule based we use rule and don't evaluate background knowledge
         if isinstance(literal.predicate, RuleBasedPredicate):
-            # if literal.negated:
-            #     return not literal.predicate.evaluate(*bound_args)
             return literal.predicate.evaluate(*bound_args)
 
         fact: bool = self._is_a_fact(literal.predicate.name, tuple(bound_args))
 
-        # Check if the bound arguments are in the predicate's facts
-        # if literal.negated:
-        #     return not fact
         return fact
 
     @lru_cache(maxsize=5000000)
@@ -632,7 +587,6 @@ class FOIL:
         predicate_facts = self.background_knowledge.get(predicate_name, set())
         return bound_args in predicate_facts
 
-    # @profile
     def _partial_evaluate_literal(
         self,
         literal: Literal,
@@ -645,30 +599,6 @@ class FOIL:
         :param background_knowledge: A dict mapping predicate names to sets of facts.
         :return: True if the literal is satisfied, False otherwise.
         """
-        # Bind the arguments using the example's variable assignments
-        # bound_args = []
-        # all_vars_bound = True
-        # for arg in literal.args:
-        #     # Check if the argument is a variable in the example
-        #     # if so get value from example
-        #     if (
-        #         isinstance(arg, Variable) and
-        #         arg.name in example):
-        #         bound_args.append(example[arg.name])
-        #         continue
-
-        #     # Check if the argument is a constant
-        #     # if so append to args
-        #     if isinstance(arg, Constant):
-        #         bound_args.append(arg.value)
-        #         continue
-
-        #     all_vars_bound = False
-        #     bound_args.append(None)
-
-        # if literal.negated:
-        #     return True
-
         bound_args = [
             example[arg.name] if arg.name in example else None for arg in literal.args
         ]
@@ -688,8 +618,6 @@ class FOIL:
             literal.predicate.name, tuple(bound_args)
         )
 
-        # if literal.negated:
-        #     return True # we must assume it is possible
         return possible_fact
 
     def _is_a_possible_fact(self, predicate_name: str, bound_args: tuple) -> bool:

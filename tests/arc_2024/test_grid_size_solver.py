@@ -31,6 +31,8 @@ def test_grid_size_solver(task_id):
 
     interpreter = Interpreter(inputs, outputs, test_inputs)
     interpretations = interpreter.interpret_shapes()
+    exceptions = []
+
     for interpretation in interpretations:
         try:
             (
@@ -51,6 +53,9 @@ def test_grid_size_solver(task_id):
 
             results = solver.solve(beam_width=2)
 
+            if len(test_outputs) == 0:
+                assert False, f"Your test data has no solution: {task_id}"
+
             for result, test_output in zip(results, test_outputs):
                 assert (
                     result.shape == test_output.shape
@@ -59,6 +64,9 @@ def test_grid_size_solver(task_id):
             return
 
         except Exception as e:
+            exceptions.append(e)
             print(f"Error: {e}")
 
+    if len(exceptions) > 0:
+        raise exceptions[0]
     assert False, f"No solution found for task_id: {task_id}"
