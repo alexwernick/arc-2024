@@ -1354,7 +1354,7 @@ class Solver:
             [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
         mask_overlapping_expanded_to_grid_pred = Predicate(
-            "mask-overlappingr-expanded-to-grid",
+            "mask-overlapping-expanded-to-grid",
             5,
             [ex_num_arg, colour_type_arg, i_arg, j_arg, shape_arg],
         )
