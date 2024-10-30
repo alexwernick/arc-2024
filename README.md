@@ -7,7 +7,7 @@ Here are some other papers written around solving ARC tasks in a similar way
 
 ## Table of Contents
 
-- [Overview](#installation)
+- [Overview](#overview)
 - [Examples](#examples)
 - [Limitations](#limitations)
 - [Installation](#installation)
@@ -29,7 +29,7 @@ The code is best understood starting at [arc_2024/runner.py](arc_2024/runner.py)
 The Interpreter, found in [arc_2024/representations/interpreter.py](arc_2024/representations/interpreter.py), finds shapes by two methods, `LOCAL_SEARCH` or `SEPARATOR`. 
 
 - `LOCAL_SEARCH` method searches the grids for any connected colours. A connection is when a colour is connected horizontally, vertically or diagonally. We consider shapes which are made up of only one colour as well as shapes of mixed colour.
-- `SEPARATOR` method breaks up the grids, using lines, in to separate shapes. We do not, in these cases, require there to be connected colours. An example of one such task solved by this interpretation is [7c008303](https://arcprize.org/play?task=7c008303). You can see below, there is an input example where the bottom left green squares would all be considered to be in onc shape. This is necessary for the solution to be found by FOIL. In `LOCAL_SEARCH` multiple shapes would be interpreted
+- `SEPARATOR` method breaks up the grids, using lines, in to separate shapes. We do not, in these cases, require there to be connected colours. An example of one such task solved by this interpretation is [7c008303](https://arcprize.org/play?task=7c008303). You can see below, there is an input example where the bottom left green squares would all be considered to be in one shape. This is necessary for the solution to be found by FOIL. In `LOCAL_SEARCH` multiple shapes would be interpreted
 
 ![alt text](readme_images/ex2_7c008303_input.png)
 
