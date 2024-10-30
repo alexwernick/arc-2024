@@ -1,5 +1,5 @@
 # arc_2024
-This project is a solver for puzzles from the [ARC](https://github.com/fchollet/ARC-AGI). The code was written to solve the tasks in the [2014 Kaggle competition](https://www.kaggle.com/competitions/arc-prize-2024). This particular solution uses Induction Logic Programming to construct definitions in First Order Logic using an implementation of the [FOIL algorithm](https://link.springer.com/content/pdf/10.1007/BF00117105.pdf). For more on these topics, check out Artificial Intelligence - A Modern Approach by Stuart Russell & Peter Norvig, 4th Edition with particular attention to Chapter 20 - Knowledge in Learning
+This project is a solver for puzzles from the [ARC](https://github.com/fchollet/ARC-AGI). The code was written to solve the tasks in the [2024 Kaggle competition](https://www.kaggle.com/competitions/arc-prize-2024). This particular solution uses Induction Logic Programming to construct definitions in First Order Logic using an implementation of the [FOIL algorithm](https://link.springer.com/content/pdf/10.1007/BF00117105.pdf). For more on these topics, check out Artificial Intelligence - A Modern Approach by Stuart Russell & Peter Norvig, 4th Edition with particular attention to Chapter 20 - Knowledge in Learning
 
 Here are some other papers written around solving ARC tasks in a similar way
 - [Relational Decomposition for Program Synthesis](https://arxiv.org/abs/2408.12212)
@@ -21,14 +21,14 @@ Here are some other papers written around solving ARC tasks in a similar way
 ## Overview
 The code is best understood starting at [arc_2024/runner.py](arc_2024/runner.py). The function `run` is called from [arc_2024/main.py](arc_2024/main.py) if running locally or from the Jupyter Notebook [arc_2024/arcprize_2024.ipynb](arc_2024/arcprize_2024.ipynb) when running on Kaggle. The runner has three main parts of interest.
 
-1. Using the `Interpreter` to generate `Shape` objects that are contained in the inputs of the ARC tasks. These shapes attempt the allow the solver to 'see' the problems as a human would, in shapes and relations to them. Later these shapes can be used to build background knowledge relating to a set of predicates used in FOIL. More on that later...
+1. Using the `Interpreter` to generate `Shape` objects that are contained in the inputs of the ARC tasks. These shapes attempt to allow the solver to 'see' the problems as a human would. Later these shapes can be used to build background knowledge relating to a set of predicates used in FOIL. More on that later...
 2. Using the `GridSizeSolver` to solve the output grid sizes for a certain task. This class constructs `Predicate` objects, a target `Literal` and background knowledge that is then fed to the FOIL algorithm.
 3. Using the result of the `GridSizeSolver`, the `Solver` similarly constructs `Predicate` objects, a target `Literal` and background knowledge that is then fed to the FOIL algorithm. This time, the range of predicates is much larger in scope to handle the huge amount of variance seen in the ARC tasks. In fact the range of predicates here is too limited to solve the majority of ARC tasks but serves a good example as how this kind of approach can be used on a subset of tasks.
 
 ### Interpreter
 The Interpreter, found in [arc_2024/representations/interpreter.py](arc_2024/representations/interpreter.py), finds shapes by two methods, `LOCAL_SEARCH` or `SEPARATOR`. 
 
-- `LOCAL_SEARCH` method searches the grids for any connected colours. A connection is when a colour is connected horizontally, vertically or diagonally. We consider shapes which are made up of only one colour as well as shapes of mixed colour.
+- `LOCAL_SEARCH` method searches the grids for any connected colours. A connection is when a colour is connected horizontally, vertically, or diagonally. We consider shapes which are made up of only one colour as well as shapes of mixed colour.
 - `SEPARATOR` method breaks up the grids, using lines, in to separate shapes. We do not, in these cases, require there to be connected colours. An example of one such task solved by this interpretation is [7c008303](https://arcprize.org/play?task=7c008303). You can see below, there is an input example where the bottom left green squares would all be considered to be in one shape. This is necessary for the solution to be found by FOIL. In `LOCAL_SEARCH` multiple shapes would be interpreted
 
 ![alt text](readme_images/ex2_7c008303_input.png)
@@ -41,19 +41,19 @@ As mentioned above, the core algorithm used here is FOIL. The code can be found 
 - This implementation of FOIL does not use Prolog. This was simply done to avoid the difficulty of trying to install Prolog on Kaggle. As the ARC competition required the Notebook to have no access to the internet, setting this up was not easy. Although, I am sure with more time would have been possible with the use of a Dataset containing the relevant files. All the necessary key elements of First Order Logic needed for FOIL were written purely in Python. Please see [arc_2024/inductive_logic_programming/first_order_logic.py](arc_2024/inductive_logic_programming/first_order_logic.py) for the definitions of `ArgType`, `Variable`, `Predicate`, `RuleBasedPredicate`, `Literal` and `Clause`
 - This implementation does not support recursion
 - This implementation does support negated literals however the implementation is sub optimal in terms of speed. Improvements could be made here
-- This implementation does allow for a `Beam Search`, helping FOIL avoid missing globally optimal solutions due to the greedy search nature of FOIL.
+- This implementation does allow for a `Beam Search`, helping FOIL avoid missing globally optimal solutions due to the greedy search nature of FOIL
 
 ### GridSizeSolver and Solver
 Both the `GridSizeSolver` found [arc_2024/grid_size_solver.py](arc_2024/grid_size_solver.py) and `Solver` found [arc_2024/solver.py](arc_2024/solver.py) prepare the relevant data / objects to pass to `FOIL`. I will talk through `Solver` from now on as it is just a more complex version of `GridSizeSolver`. `GridSizeSolver` simply solves the output grid size where `Solver` aims to solve the actual position of colours found within that output grid.
 
 - Looking at the `solve` function we can see how we prepare the data for FOIL
-  - `_create_args_types` generates our `ArgType`s that we will used in our `Predicate`s. `ArgType`s can take a list of possible values or a `func` that will be  evaluated using the example data. The `func` allows us to have specific sets of values for a particular example. For example our `i_arg` will only have i values from 0 to the respective grid height when extending the examples in FOIL.
+  - `_create_args_types` generates our `ArgType`s that we will used in our `Predicate`s. `ArgType`s can take a list of possible values or a `func` that will be evaluated using the example data. The `func` allows us to have specific sets of values for a particular example. For example our `i_arg` will only have i values from 0 to the respective grid height when extending the examples in FOIL.
   - `_create_variables` uses the `ArgType`s to create our initial `Variable`s which will be added to our target literal. We start with four variables `V1`, `V2`, `V3` and `V4` which are example number, colour, i, j in the output grids respectively. Further variables are added while we extend our examples when new predicates are added to the `Clause` during the running of FOIL
   - `_create_target_literal` creates `output(V1, V2, V3, V4).` as our target `Literal`
-  - `_create_predicates` creates our `Predicate`s. This is a long function but simply sets up the `Predicate`s used in `FOIL`. The full list of `Predicate`s used can most easily be seen in the named tuple at the top of the file called `Predicates`. If a `Predicate` is a standard predicate then we populate the background knowledge related to this predicate in a subsequent function. If it's a `RuleBasedPredicate` then no background knowledge is generated but an evaluation function is defined. This function is simply invoked using the example data when assessing the predicate during the FOIL run. 
+  - `_create_predicates` creates our `Predicate`s. This is a long function but simply sets up the `Predicate`s used in `FOIL`. The full list of `Predicate`s used can most easily be seen in the named tuple at the top of the file called `Predicates`. If a `Predicate` is a standard predicate then we populate the background knowledge related to this predicate in a subsequent function. If it's a `RuleBasedPredicate` then no background knowledge is generated but an evaluation function is defined. This function is simply invoked using the example data when assessing the predicate during the FOIL run
   - `_create_examples` creates the positive and negative examples to be passed to FOIL
   - `_create_background_knowledge` creates the background knowledge for all the standard `Predicate`s mentioned above
-  - Finally FOIL is run with the above data.
+  - Finally FOIL is run with the above data
 
 ## Examples
 
