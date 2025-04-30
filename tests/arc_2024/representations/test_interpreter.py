@@ -127,77 +127,6 @@ def test_interprets_all_shapes(interpreter_dictiorary, task_id):
     check_shapes(test_inputs_shapes, expected_test_input_shapes)
 
 
-# def test_interprets_colour_count_shape_groups(interpreter: Interpreter):
-#     interpreter = create_interpreter_for_task("0b148d64")
-#     # Exercise code
-#     interpretations = interpreter.interpret_shapes()
-#     interpreted_shapes = next(
-#         (
-#             x
-#             for x in interpretations
-#             if x.interpret_type == Interpreter.InterpretType.SEPERATOR
-#         ),
-#         None,
-#     )
-
-#     # Verify code
-#     assert interpreted_shapes is not None
-#     inputs_shapes = interpreted_shapes.inputs
-#     test_inputs_shapes = interpreted_shapes.test_inputs
-
-#     for shape in inputs_shapes[0]:
-#         if shape.shape_type.name != "SINGLE_COLOUR":
-#             continue
-
-#         if shape.colour == Colour(8):
-#             assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
-#         elif shape.colour == Colour(2):
-#             assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
-
-#     for shape in inputs_shapes[1]:
-#         if shape.shape_type.name != "SINGLE_COLOUR":
-#             continue
-
-#         if shape.colour == Colour(2):
-#             assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
-#         elif shape.colour == Colour(3):
-#             assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
-
-#     for shape in inputs_shapes[2]:
-#         if shape.shape_type.name != "SINGLE_COLOUR":
-#             continue
-
-#         if shape.colour == Colour(1):
-#             assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
-#         elif shape.colour == Colour(4):
-#             assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
-
-#     for shape in test_inputs_shapes[0]:
-#         if shape.shape_type.name != "SINGLE_COLOUR":
-#             continue
-
-#         if shape.colour == Colour(3):
-#             assert "GROUP_COLOUR_COUNT-3" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-0" in shape.shape_groups
-#         elif shape.colour == Colour(1):
-#             assert "GROUP_COLOUR_COUNT-1" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_ASC-0" in shape.shape_groups
-#             assert "GROUP_COLOUR_COUNT_DESC-1" in shape.shape_groups
-
-
 def test_interprets_shape_size_shape_groups(interpreter: Interpreter):
     interpreter = create_interpreter_for_task("08ed6ac7")
     # Exercise code
@@ -352,7 +281,7 @@ def test_split_array_on_zeros_with_indices():
     assert sub_arrays_with_indices[3][0] == (11, 8)
 
 
-def test_interprets_seperator_shapes_ex1():
+def test_interprets_separator_shapes_ex1():
     # Setup
     interpreter = create_interpreter_for_task("7c008303")
 
@@ -361,7 +290,7 @@ def test_interprets_seperator_shapes_ex1():
         (
             x
             for x in interpretations
-            if x.interpret_type == Interpreter.InterpretType.SEPERATOR
+            if x.interpret_type == Interpreter.InterpretType.SEPARATOR
         ),
         None,
     )
@@ -614,7 +543,7 @@ def test_interprets_seperator_shapes_ex1():
         assert inps == expected_input_shapes
 
 
-def test_interprets_seperator_shapes_ex2():
+def test_interprets_separator_shapes_ex2():
     # Setup
     interpreter = create_interpreter_for_task("0520fde7")
 
@@ -623,7 +552,7 @@ def test_interprets_seperator_shapes_ex2():
         (
             x
             for x in interpretations
-            if x.interpret_type == Interpreter.InterpretType.SEPERATOR
+            if x.interpret_type == Interpreter.InterpretType.SEPARATOR
         ),
         None,
     )

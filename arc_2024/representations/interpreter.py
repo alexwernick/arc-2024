@@ -24,7 +24,7 @@ class Interpreter:
 
     class InterpretType(Enum):
         LOCAL_SEARCH = 1
-        SEPERATOR = 2
+        SEPARATOR = 2
 
     _COLOUR_GROUP_COUNT_THRESHOLD = 6  # max number of colours in groups that we track
     _WHOLE_BOARD_GROUP_NAME = "WHOLE_BOARD"
@@ -74,34 +74,34 @@ class Interpreter:
             self.test_inputs
         )
 
-        inputs_have_seperators, seperator_colour = self._do_inputs_have_seperators()
+        inputs_have_separators, separator_colour = self._do_inputs_have_separators()
 
-        if inputs_have_seperators:
-            seperator_inputs: List[List[Shape]] = self._interpret_shapes_by_seperator(
-                self.inputs, seperator_colour
+        if inputs_have_separators:
+            separator_inputs: List[List[Shape]] = self._interpret_shapes_by_separator(
+                self.inputs, separator_colour
             )
-            seperator_outputs: List[List[Shape]] = [[] for _ in self.outputs]
-            seperator_test_inputs: List[
+            separator_outputs: List[List[Shape]] = [[] for _ in self.outputs]
+            separator_test_inputs: List[
                 List[Shape]
-            ] = self._interpret_shapes_by_seperator(self.test_inputs, seperator_colour)
+            ] = self._interpret_shapes_by_separator(self.test_inputs, separator_colour)
 
             # if the two interpretations are different we return both
-            seperator_local_search_different = self._shape_interpretations_not_subset(
-                local_search_inputs, seperator_inputs
+            separator_local_search_different = self._shape_interpretations_not_subset(
+                local_search_inputs, separator_inputs
             ) or self._shape_interpretations_not_subset(
-                local_search_test_inputs, seperator_test_inputs
+                local_search_test_inputs, separator_test_inputs
             )
 
-            if seperator_local_search_different:
+            if separator_local_search_different:
                 self._interpret_and_enrich_with_shape_groups(
-                    seperator_inputs, seperator_test_inputs
+                    separator_inputs, separator_test_inputs
                 )
                 interpretations.append(
                     self.InterpretedShapes(
-                        seperator_inputs,
-                        seperator_outputs,
-                        seperator_test_inputs,
-                        Interpreter.InterpretType.SEPERATOR,
+                        separator_inputs,
+                        separator_outputs,
+                        separator_test_inputs,
+                        Interpreter.InterpretType.SEPARATOR,
                     )
                 )
 
@@ -509,7 +509,7 @@ class Interpreter:
             assign_ordered_groups(shapes, counts_the_same)
 
     @staticmethod
-    def _interpret_shapes_by_seperator_old(
+    def _interpret_shapes_by_separator_old(
         grids: list[NDArray[np.int16]],
     ) -> list[list[Shape]]:
         list_shapes: List[List[Shape]] = [[] for _ in grids]
@@ -593,18 +593,18 @@ class Interpreter:
                 return True
         return False
 
-    def _do_inputs_have_seperators(self) -> tuple[bool, int]:
-        def has_seperator(input_grids, colour_value: int) -> bool:
+    def _do_inputs_have_separators(self) -> tuple[bool, int]:
+        def has_separator(input_grids, colour_value: int) -> bool:
             for grid in input_grids:
-                seperator_colums = self._find_seperator_columns(grid, colour_value)
-                seperator_rows = self._find_seperator_rows(grid, colour_value)
+                separator_colums = self._find_separator_columns(grid, colour_value)
+                separator_rows = self._find_separator_rows(grid, colour_value)
 
-                if not seperator_colums and not seperator_rows:
+                if not separator_colums and not separator_rows:
                     return False
             return True
 
         for color in Colour:
-            if has_seperator(self.inputs, color.value) and has_seperator(
+            if has_separator(self.inputs, color.value) and has_separator(
                 self.test_inputs, color.value
             ):
                 return True, color.value
@@ -612,53 +612,53 @@ class Interpreter:
         return False, -1
 
     @staticmethod
-    def _interpret_shapes_by_seperator(
-        input_grids: list[NDArray[np.int16]], seperator_colour: int
+    def _interpret_shapes_by_separator(
+        input_grids: list[NDArray[np.int16]], separator_colour: int
     ) -> list[list[Shape]]:
-        def get_seperators() -> List[tuple[List[Shape], List[Shape]]]:
-            seperators: List[tuple[List[Shape], List[Shape]]] = []
+        def get_separators() -> List[tuple[List[Shape], List[Shape]]]:
+            separators: List[tuple[List[Shape], List[Shape]]] = []
 
             for grid in input_grids:
-                seperator_colums = Interpreter._find_seperator_columns(
-                    grid, seperator_colour
+                separator_colums = Interpreter._find_separator_columns(
+                    grid, separator_colour
                 )
-                seperator_rows = Interpreter._find_seperator_rows(
-                    grid, seperator_colour
+                separator_rows = Interpreter._find_separator_rows(
+                    grid, separator_colour
                 )
 
-                vertical_seperators: List[Shape] = []
-                horizontal_seperators: List[Shape] = []
+                vertical_separators: List[Shape] = []
+                horizontal_separators: List[Shape] = []
 
-                for col in seperator_colums:
+                for col in separator_colums:
                     mask = grid[:, col : col + 1].astype(np.int16)
-                    vertical_seperators.append(
+                    vertical_separators.append(
                         Shape((0, col), mask, Interpreter._single_or_mixed_shape(mask))
                     )
 
-                for row in seperator_rows:
+                for row in separator_rows:
                     mask = grid[row : row + 1, :].astype(np.int16)
-                    horizontal_seperators.append(
+                    horizontal_separators.append(
                         Shape((row, 0), mask, Interpreter._single_or_mixed_shape(mask))
                     )
-                seperators.append((vertical_seperators, horizontal_seperators))
+                separators.append((vertical_separators, horizontal_separators))
 
-            return seperators
+            return separators
 
-        seperators = get_seperators()
+        separators = get_separators()
 
-        seperator_inputs: List[List[Shape]] = [[] for _ in input_grids]
+        separator_inputs: List[List[Shape]] = [[] for _ in input_grids]
 
-        for index, (vertical_seperators, horizontal_seperators) in enumerate(
-            seperators
+        for index, (vertical_separators, horizontal_separators) in enumerate(
+            separators
         ):
             vertical_indices: list[int] = []
             horizontal_indices: list[int] = []
-            for vertical_seperator in vertical_seperators:
-                vertical_indices.append(vertical_seperator.position[1])
-                seperator_inputs[index].append(vertical_seperator)
-            for horizontal_seperator in horizontal_seperators:
-                horizontal_indices.append(horizontal_seperator.position[0])
-                seperator_inputs[index].append(horizontal_seperator)
+            for vertical_separator in vertical_separators:
+                vertical_indices.append(vertical_separator.position[1])
+                separator_inputs[index].append(vertical_separator)
+            for horizontal_separator in horizontal_separators:
+                horizontal_indices.append(horizontal_separator.position[0])
+                separator_inputs[index].append(horizontal_separator)
 
             # they should already be in order but belt and braces
             vertical_indices = sorted(vertical_indices)
@@ -717,7 +717,7 @@ class Interpreter:
                     if not Interpreter._has_any_colours(mask):
                         continue
 
-                    seperator_inputs[index].append(
+                    separator_inputs[index].append(
                         Shape(
                             (
                                 previous_horizontal_index + 1,
@@ -727,7 +727,7 @@ class Interpreter:
                             Interpreter._single_or_mixed_shape(mask),
                         )
                     )
-        return seperator_inputs
+        return separator_inputs
 
     @staticmethod
     def _single_or_mixed_shape(mask: NDArray[np.int16]) -> ShapeType:
@@ -745,25 +745,25 @@ class Interpreter:
         return len(distinct_positives) > 0
 
     @staticmethod
-    def _find_seperator_columns(arr: NDArray[np.int16], colour_value: int) -> List[int]:
+    def _find_separator_columns(arr: NDArray[np.int16], colour_value: int) -> List[int]:
         uniform_columns = []
         for col in range(arr.shape[1]):
             if np.all(arr[:, col] == colour_value):
                 uniform_columns.append(col)
-        return Interpreter._uniform_to_seperators(uniform_columns)
+        return Interpreter._uniform_to_separators(uniform_columns)
 
     @staticmethod
-    def _find_seperator_rows(arr: NDArray[np.int16], colour_value: int) -> List[int]:
+    def _find_separator_rows(arr: NDArray[np.int16], colour_value: int) -> List[int]:
         uniform_rows = []
         for row in range(arr.shape[0]):
             if np.all(arr[row, :] == colour_value):
                 uniform_rows.append(row)
 
-        return Interpreter._uniform_to_seperators(uniform_rows)
+        return Interpreter._uniform_to_separators(uniform_rows)
 
     @staticmethod
-    def _uniform_to_seperators(uniform: List[int]) -> List[int]:
-        seperators = []
+    def _uniform_to_separators(uniform: List[int]) -> List[int]:
+        separators = []
         if len(uniform) <= 1:
             return uniform
 
@@ -779,6 +779,6 @@ class Interpreter:
                 is_next_to_next = uniform[index + 1] - row == 1
 
             if not is_next_to_previous and not is_next_to_next:
-                seperators.append(row)
+                separators.append(row)
 
-        return seperators
+        return separators

@@ -22,7 +22,6 @@ class Shape:
     mask: NDArray[np.int16]
     num_of_coloured_pixels: int
     centre: Tuple[float, float]
-    relationships: dict[str, RelationshipType]
     shape_type: ShapeType
     colours: set[Colour]
     colour_count: int
@@ -85,25 +84,6 @@ class Shape:
         self.centre = (centre_height, centre_width)
         self.shape_groups = set()
         self._internal_blank_spaces_in_mask = self._find_internal_blank_spaces_in_mask()
-
-        self.relationships = {
-            "is_exact_match": self.is_exact_match,
-            "is_above": self.is_above,
-            "is_below": self.is_below,
-            "is_left_of": self.is_left_of,
-            "is_right_of": self.is_right_of,
-            "is_inline_diagonally_above_right": self.is_inline_diagonally_above_right,  # noqa: E501
-            "is_inline_diagonally_above_left": self.is_inline_diagonally_above_left,
-            "is_inline_diagonally_below_right": self.is_inline_diagonally_below_right,  # noqa: E501
-            "is_inline_diagonally_below_left": self.is_inline_diagonally_below_left,
-            "is_inline_above_vertically": self.is_inline_above_vertically,
-            "is_inline_below_vertically": self.is_inline_below_vertically,
-            "is_inline_left_horizontally": self.is_inline_left_horizontally,
-            "is_inline_right_horizontally": self.is_inline_right_horizontally,
-            "is_mask_overlapping": self.is_mask_overlapping,
-            "is_inside": self.is_inside_mask,
-            "is_same_colour": self.is_same_colour,
-        }
 
     def __eq__(self, other):
         if isinstance(other, Shape):
